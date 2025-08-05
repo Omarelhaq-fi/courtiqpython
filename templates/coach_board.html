@@ -103,11 +103,17 @@
         const keyHeight = 19 * scale;
         const hoopCenterY = 5.25 * scale;
         const threePointSideX = 3 * scale;
-        const threePointSideY = 14 * scale;
         const threePointRadius = 23.75 * scale;
         const backboardWidth = 6 * scale;
         const backboardOffsetY = 4 * scale;
         const hoopRadius = 0.75 * scale;
+
+        // --- Corrected 3-point line calculation ---
+        // Find the Y coordinate where the straight line part of the 3-point line meets the arc
+        const dx = w / 2 - threePointSideX;
+        // Handle potential floating point inaccuracies or resize issues where dx > radius
+        const dy_squared = Math.max(0, threePointRadius**2 - dx**2);
+        const threePointArcStartY = hoopCenterY + Math.sqrt(dy_squared);
 
         // --- Drawing ---
         ctx.strokeStyle = '#6b7280';
@@ -130,13 +136,17 @@
         ctx.stroke();
         ctx.setLineDash([]); // Reset to solid line
 
-        // Three-point line
+        // Three-point line (NEW CORRECTED LOGIC)
         ctx.beginPath();
-        ctx.moveTo(threePointSideX, 0);
-        ctx.lineTo(threePointSideX, threePointSideY);
-        // Use arcTo for a smooth connection. The control point is an imaginary point that defines the curve's sharpness.
-        // A point above the top of the key works well.
-        ctx.arcTo(w / 2, hoopCenterY - threePointRadius, w - threePointSideX, threePointSideY, threePointRadius);
+        ctx.moveTo(threePointSideX, 0); // Start at baseline left
+        ctx.lineTo(threePointSideX, threePointArcStartY); // Straight part left
+        
+        // The arc
+        const startAngle = Math.atan2(threePointArcStartY - hoopCenterY, threePointSideX - w/2);
+        const endAngle = Math.atan2(threePointArcStartY - hoopCenterY, (w - threePointSideX) - w/2);
+        ctx.arc(w / 2, hoopCenterY, threePointRadius, startAngle, endAngle, false);
+        
+        // Straight part right, connecting to the end of the arc
         ctx.lineTo(w - threePointSideX, 0);
         ctx.stroke();
 

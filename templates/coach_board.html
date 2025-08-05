@@ -77,7 +77,8 @@
 
     function resizeCanvas() {
         const containerRect = canvasContainer.getBoundingClientRect();
-        const aspectRatio = 500 / 940; // width / height for a full court
+        // Aspect ratio for a standard half court (50ft wide x 47ft long)
+        const aspectRatio = 470 / 500; 
         let newWidth = containerRect.width - 32; // padding
         let newHeight = newWidth * aspectRatio;
 
@@ -92,20 +93,55 @@
     }
 
     function drawCourt() {
+        // --- Scaling factors ---
+        const w = canvas.width;
+        const h = canvas.height;
+        const keyWidth = w * 0.24; // 12ft / 50ft
+        const keyHeight = h * 0.4; // 19ft / 47ft
+        const threePointRadius = h * 0.475; // 22.17ft / 47ft
+        const threePointCutoff = w * 0.06; // 3ft from sideline
+        const backboardOffset = h * 0.085; // 4ft from baseline
+        const backboardWidth = w * 0.12; // 6ft / 50ft
+        const hoopRadius = w * 0.015; // 0.75ft / 50ft
+
+        // --- Drawing ---
         ctx.strokeStyle = '#6b7280';
         ctx.lineWidth = 2;
         ctx.fillStyle = '#2d3748';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, w, h);
 
-        // Center line
+        // The Key (Paint)
+        ctx.strokeRect((w - keyWidth) / 2, 0, keyWidth, keyHeight);
+        
+        // Free throw circle (top part)
         ctx.beginPath();
-        ctx.moveTo(canvas.width / 2, 0);
-        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.arc(w / 2, keyHeight, keyWidth / 2, 0, Math.PI, false);
+        ctx.stroke();
+        
+        // Free throw circle (bottom part, dashed)
+        ctx.beginPath();
+        ctx.setLineDash([5, 5]);
+        ctx.arc(w / 2, keyHeight, keyWidth / 2, Math.PI, 2 * Math.PI, false);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset to solid line
+
+        // Three-point line
+        ctx.beginPath();
+        ctx.moveTo(threePointCutoff, 0);
+        ctx.lineTo(threePointCutoff, h * 0.298); // 14ft down
+        ctx.arc(w / 2, backboardOffset, threePointRadius, -Math.acos((w/2 - threePointCutoff)/threePointRadius), Math.acos((w/2 - threePointCutoff)/threePointRadius));
+        ctx.lineTo(w - threePointCutoff, 0);
         ctx.stroke();
 
-        // Center circle
+        // Backboard
         ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, canvas.width * 0.08, 0, 2 * Math.PI);
+        ctx.moveTo((w - backboardWidth) / 2, backboardOffset);
+        ctx.lineTo((w + backboardWidth) / 2, backboardOffset);
+        ctx.stroke();
+        
+        // Hoop
+        ctx.beginPath();
+        ctx.arc(w / 2, backboardOffset + hoopRadius*2, hoopRadius, 0, 2 * Math.PI);
         ctx.stroke();
     }
 

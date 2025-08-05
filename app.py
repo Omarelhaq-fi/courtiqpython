@@ -124,7 +124,6 @@ def add_coach():
     password = request.form.get('coach_password')
 
     if not username or not password:
-        # Handle error, maybe flash a message
         return redirect(url_for('dashboard'))
 
     hashed_password = generate_password_hash(password)
@@ -134,7 +133,6 @@ def add_coach():
             cursor.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, 'coach')", (username, hashed_password))
             db.commit()
         except pymysql.err.IntegrityError:
-            # Username already exists
             pass
     return redirect(url_for('dashboard'))
 
@@ -177,11 +175,9 @@ def assign_resources():
 
     db = get_db()
     with db.cursor() as cursor:
-        # Clear existing assignments for this coach
         cursor.execute("DELETE FROM coaches_teams WHERE coach_id = %s", [coach_id])
         cursor.execute("DELETE FROM coaches_players WHERE coach_id = %s", [coach_id])
 
-        # Add new assignments
         if assigned_teams:
             team_data = [(coach_id, team_id) for team_id in assigned_teams]
             cursor.executemany("INSERT INTO coaches_teams (coach_id, team_id) VALUES (%s, %s)", team_data)
@@ -192,6 +188,28 @@ def assign_resources():
     
     db.commit()
     return redirect(url_for('dashboard'))
+
+# --- Temporary User Creation Route ---
+# This route is for development only.
+@app.route('/create_user_dev', methods=['GET'])
+def create_user_dev():
+    username = request.args.get('user')
+    password = request.args.get('pass')
+    role = request.args.get('role')
+    if not (username and password and role):
+        return "Please provide user, pass, and role query parameters."
+
+    hashed_password = generate_password_hash(password)
+    db = get_db()
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", (username, hashed_password, role))
+        db.commit()
+        return f"User '{username}' created successfully."
+    except pymysql.err.IntegrityError:
+        return f"Error: User '{username}' already exists."
+    except Exception as e:
+        return f"Error creating user: {e}"
 
 if __name__ == '__main__':
     app.run(debug=True)

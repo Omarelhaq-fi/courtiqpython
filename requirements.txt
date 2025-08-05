@@ -1,4 +1,1 @@
 Flask
-Flask-MySQLdb
-PyMySQL
-Werkzeug

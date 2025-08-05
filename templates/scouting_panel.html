@@ -56,25 +56,17 @@
             <button id="generateReportBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-md">Save Report & Finish</button>
         </div>
     </div>
-
-    <!-- Modals -->
-    <div id="detailModal" class="modal-backdrop hidden"></div>
+    
     <div id="notificationModal" class="modal-backdrop hidden"></div>
 
     <script>
         const app = {
-            players: [],
-            opponentScore: 0,
-            gameTime: 0,
-            gameTimerInterval: null,
-            isGameTimerRunning: false,
-
+            players: [], opponentScore: 0, gameTime: 0, gameTimerInterval: null, isGameTimerRunning: false,
             init() {
                 this.cacheDOMElements();
                 this.addEventListeners();
                 this.fetchPlayers();
             },
-
             cacheDOMElements() {
                 this.scoutingPanel = document.getElementById('scoutingPanel');
                 this.loadingMessage = document.getElementById('loadingMessage');
@@ -85,55 +77,44 @@
                 this.teamNameInput = document.getElementById('teamName');
                 this.generateReportBtn = document.getElementById('generateReportBtn');
             },
-
             addEventListeners() {
                 this.gameTimerBtn.addEventListener('click', () => this.handleGameTimer());
                 this.generateReportBtn.addEventListener('click', () => this.saveReport());
             },
-            
             async fetchPlayers() {
                 try {
                     const response = await fetch('/api/players');
                     if (!response.ok) throw new Error('Failed to fetch players');
                     const playersFromDB = await response.json();
-                    
                     this.players = playersFromDB.map(p => ({
                         id: p.id, name: p.name, number: p.number || 'N/A',
                         minutes: 0, timerInterval: null, isTimerRunning: false,
-                        points: 0, rebounds: 0, offensiveRebounds: 0, defensiveRebounds: 0,
-                        assists: 0, steals: 0, blocks: 0, timesBlocked: 0, turnovers: 0, personalFouls: 0,
-                        turnoverDetails: { missPass: 0, stolen: 0, byBlock: 0, shotClock: 0, travelling: 0, doubleDribble: 0, outOfBounds: 0, backcourt: 0 },
-                        foulDetails: { defensive: 0, offensive: 0, technical: 0, unsportsmanlike: 0 },
+                        points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
                         fg2a: 0, fg2m: 0, fg3a: 0, fg3m: 0, fta: 0, ftm: 0,
-                        shots: [],
                     }));
                     this.render();
                 } catch (error) {
                     this.loadingMessage.textContent = 'Failed to load players.';
                 }
             },
-
             handleGameTimer() {
                 this.isGameTimerRunning = !this.isGameTimerRunning;
                 if (this.isGameTimerRunning) {
-                    this.players.forEach(p => this.handlePlayerTimer(p.id, true)); // Start all timers
+                    this.players.forEach(p => this.handlePlayerTimer(p.id, true));
                     this.gameTimerInterval = setInterval(() => {
                         this.gameTime++;
                         this.renderGameTimer();
                     }, 1000);
                 } else {
-                    this.players.forEach(p => this.handlePlayerTimer(p.id, false)); // Stop all timers
+                    this.players.forEach(p => this.handlePlayerTimer(p.id, false));
                     clearInterval(this.gameTimerInterval);
                 }
                 this.renderGameTimer();
             },
-            
             handlePlayerTimer(playerId, forceStart = null) {
                 const player = this.players.find(p => p.id === playerId);
                 if (!player) return;
-
                 const shouldBeRunning = forceStart !== null ? forceStart : !player.isTimerRunning;
-
                 if (shouldBeRunning && !player.isTimerRunning) {
                     player.isTimerRunning = true;
                     player.timerInterval = setInterval(() => {
@@ -146,7 +127,6 @@
                 }
                 this.render();
             },
-
             handleShot(playerId, type, made) {
                 const player = this.players.find(p => p.id === playerId);
                 if (!player) return;
@@ -157,7 +137,6 @@
                 }
                 this.render();
             },
-            
             handleFreeThrow(playerId, made) {
                 const player = this.players.find(p => p.id === playerId);
                 if (!player) return;
@@ -168,7 +147,6 @@
                 }
                 this.render();
             },
-            
             incrementStat(playerId, stat) {
                 const player = this.players.find(p => p.id === playerId);
                 if (player) {
@@ -176,22 +154,18 @@
                     this.render();
                 }
             },
-            
             addOpponentPoints(points) {
                 this.opponentScore += points;
                 this.renderScores();
             },
-
             async saveReport() {
                 this.generateReportBtn.disabled = true;
                 this.generateReportBtn.textContent = 'Saving...';
-
                 const reportData = {
                     teamName: this.teamNameInput.value.trim() || 'My Team',
                     opponentScore: this.opponentScore,
                     players: this.players
                 };
-
                 try {
                     const response = await fetch('/api/save_report', {
                         method: 'POST',
@@ -199,11 +173,10 @@
                         body: JSON.stringify(reportData)
                     });
                     const result = await response.json();
-                    if (result.success) {
-                        this.showNotification(`Report saved successfully! You can view it in the Dashboard.`, true);
-                        setTimeout(() => window.location.href = '/dashboard', 2000);
+                    if (result.success && result.reportId) {
+                        window.location.href = `/report/${result.reportId}`;
                     } else {
-                        throw new Error(result.message || 'Failed to save report.');
+                        throw new Error(result.message || 'Failed to get report ID.');
                     }
                 } catch (error) {
                     this.showNotification(`Error: ${error.message}`, false);
@@ -211,25 +184,13 @@
                     this.generateReportBtn.textContent = 'Save Report & Finish';
                 }
             },
-            
             showNotification(message, isSuccess) {
                 const modal = document.getElementById('notificationModal');
-                modal.innerHTML = `
-                    <div class="card p-6 rounded-lg text-center max-w-sm">
-                        <h3 class="text-xl font-semibold mb-4 ${isSuccess ? 'text-green-400' : 'text-red-400'}">${isSuccess ? 'Success' : 'Error'}</h3>
-                        <p>${message}</p>
-                    </div>
-                `;
+                modal.innerHTML = `<div class="card p-6 rounded-lg text-center max-w-sm"><h3 class="text-xl font-semibold mb-4 ${isSuccess ? 'text-green-400' : 'text-red-400'}">${isSuccess ? 'Success' : 'Error'}</h3><p>${message}</p></div>`;
                 modal.classList.remove('hidden');
-                if (isSuccess) {
-                    setTimeout(() => modal.classList.add('hidden'), 2000);
-                } else {
-                    modal.addEventListener('click', () => modal.classList.add('hidden'), { once: true });
-                }
+                modal.addEventListener('click', () => modal.classList.add('hidden'), { once: true });
             },
-
             formatTime: (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`,
-
             renderGameTimer() {
                 this.gameTimerDisplay.textContent = this.formatTime(this.gameTime);
                 this.gameTimerBtn.textContent = this.isGameTimerRunning ? 'Stop Game' : 'Start Game';
@@ -238,37 +199,28 @@
                 this.gameTimerBtn.classList.toggle('bg-green-600', !this.isGameTimerRunning);
                 this.gameTimerBtn.classList.toggle('hover:bg-green-700', !this.isGameTimerRunning);
             },
-            
             renderScores() {
                 this.yourTeamScoreEl.textContent = this.players.reduce((total, p) => total + p.points, 0);
                 this.opponentScoreEl.textContent = this.opponentScore;
             },
-
             render() {
                 if (this.players.length === 0) {
                     this.loadingMessage.textContent = 'No players assigned or available for scouting.';
                     return;
                 }
                 this.loadingMessage.style.display = 'none';
-                
                 this.renderScores();
-
                 this.scoutingPanel.innerHTML = this.players.map(p => `
                     <div class="card p-3 rounded-lg shadow-md w-full sm:w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.67rem)]">
                         <div class="flex justify-between items-start mb-3 pb-2 border-b border-slate-600">
-                            <div>
-                                <h3 class="text-lg font-bold text-orange-400">${p.name}</h3>
-                                <p class="text-sm text-slate-400">#${p.number}</p>
-                            </div>
-                            <div class="text-right">
-                                <button class="timer-btn ${p.isTimerRunning ? 'active' : 'bg-green-600'} text-white font-semibold py-2 px-3 rounded-md text-xs" onclick="app.handlePlayerTimer(${p.id})">${p.isTimerRunning ? 'PAUSE' : 'PLAY'}</button>
-                                <p class="text-xl font-mono font-bold mt-1">${this.formatTime(p.minutes)}</p>
-                            </div>
+                            <div><h3 class="text-lg font-bold text-orange-400">${p.name}</h3><p class="text-sm text-slate-400">#${p.number}</p></div>
+                            <div class="text-right"><button class="timer-btn ${p.isTimerRunning ? 'active' : 'bg-green-600'} text-white font-semibold py-2 px-3 rounded-md text-xs" onclick="app.handlePlayerTimer(${p.id})">${p.isTimerRunning ? 'PAUSE' : 'PLAY'}</button><p class="text-xl font-mono font-bold mt-1">${this.formatTime(p.minutes)}</p></div>
                         </div>
-                        <div class="grid grid-cols-3 gap-2 mb-3 text-center">
-                            <div><p class="text-xl font-bold">${p.points}</p><p class="text-xs text-slate-400">Points</p></div>
-                            <div><p class="text-xl font-bold">${p.rebounds}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'rebounds')">REB</button></div>
-                            <div><p class="text-xl font-bold">${p.assists}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'assists')">AST</button></div>
+                        <div class="grid grid-cols-4 gap-2 mb-3 text-center">
+                            <div><p class="text-lg font-bold">${p.points}</p><p class="text-xs">PTS</p></div>
+                            <div><p class="text-lg font-bold">${p.rebounds}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'rebounds')">REB</button></div>
+                            <div><p class="text-lg font-bold">${p.assists}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'assists')">AST</button></div>
+                            <div><p class="text-lg font-bold">${p.steals}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'steals')">STL</button></div>
                         </div>
                         <div class="border-t border-slate-600 pt-3">
                             <h4 class="font-semibold mb-2 text-center">Shooting</h4>
@@ -282,7 +234,6 @@
                 `).join('');
             }
         };
-
         document.addEventListener('DOMContentLoaded', () => app.init());
     </script>
 </body>

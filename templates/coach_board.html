@@ -93,16 +93,21 @@
     }
 
     function drawCourt() {
-        // --- Scaling factors ---
+        // --- Scaling factors based on NBA half-court ---
         const w = canvas.width;
         const h = canvas.height;
-        const keyWidth = w * 0.24; // 12ft / 50ft
-        const keyHeight = h * 0.4; // 19ft / 47ft
-        const threePointRadius = h * 0.475; // 22.17ft / 47ft
-        const threePointCutoff = w * 0.06; // 3ft from sideline
-        const backboardOffset = h * 0.085; // 4ft from baseline
-        const backboardWidth = w * 0.12; // 6ft / 50ft
-        const hoopRadius = w * 0.015; // 0.75ft / 50ft
+        const scale = w / 50; // 50ft wide
+
+        // --- Scaled dimensions ---
+        const keyWidth = 12 * scale;
+        const keyHeight = 19 * scale;
+        const hoopCenterY = 5.25 * scale;
+        const threePointSideX = 3 * scale;
+        const threePointSideY = 14 * scale;
+        const threePointRadius = 23.75 * scale;
+        const backboardWidth = 6 * scale;
+        const backboardOffsetY = 4 * scale;
+        const hoopRadius = 0.75 * scale;
 
         // --- Drawing ---
         ctx.strokeStyle = '#6b7280';
@@ -113,36 +118,42 @@
         // The Key (Paint)
         ctx.strokeRect((w - keyWidth) / 2, 0, keyWidth, keyHeight);
         
-        // Free throw circle (top part)
+        // Free throw circle (top part - solid)
         ctx.beginPath();
-        ctx.arc(w / 2, keyHeight, keyWidth / 2, 0, Math.PI, false);
+        ctx.arc(w / 2, keyHeight, keyWidth / 2, Math.PI, 0, false);
         ctx.stroke();
         
-        // Free throw circle (bottom part, dashed)
+        // Free throw circle (bottom part - dashed)
         ctx.beginPath();
         ctx.setLineDash([5, 5]);
-        ctx.arc(w / 2, keyHeight, keyWidth / 2, Math.PI, 2 * Math.PI, false);
+        ctx.arc(w / 2, keyHeight, keyWidth / 2, 0, Math.PI, false);
         ctx.stroke();
         ctx.setLineDash([]); // Reset to solid line
 
         // Three-point line
         ctx.beginPath();
-        ctx.moveTo(threePointCutoff, 0);
-        ctx.lineTo(threePointCutoff, h * 0.298); // 14ft down
-        ctx.arc(w / 2, backboardOffset, threePointRadius, -Math.acos((w/2 - threePointCutoff)/threePointRadius), Math.acos((w/2 - threePointCutoff)/threePointRadius));
-        ctx.lineTo(w - threePointCutoff, 0);
+        ctx.moveTo(threePointSideX, 0);
+        ctx.lineTo(threePointSideX, threePointSideY);
+        // Use arcTo for a smooth connection. The control point is an imaginary point that defines the curve's sharpness.
+        // A point above the top of the key works well.
+        ctx.arcTo(w / 2, hoopCenterY - threePointRadius, w - threePointSideX, threePointSideY, threePointRadius);
+        ctx.lineTo(w - threePointSideX, 0);
         ctx.stroke();
 
         // Backboard
         ctx.beginPath();
-        ctx.moveTo((w - backboardWidth) / 2, backboardOffset);
-        ctx.lineTo((w + backboardWidth) / 2, backboardOffset);
+        ctx.moveTo((w - backboardWidth) / 2, backboardOffsetY);
+        ctx.lineTo((w + backboardWidth) / 2, backboardOffsetY);
+        ctx.lineWidth = 4; // Backboard is thicker
         ctx.stroke();
         
         // Hoop
         ctx.beginPath();
-        ctx.arc(w / 2, backboardOffset + hoopRadius*2, hoopRadius, 0, 2 * Math.PI);
+        ctx.arc(w / 2, hoopCenterY, hoopRadius, 0, 2 * Math.PI);
+        ctx.lineWidth = 2; // Reset line width
+        ctx.strokeStyle = '#F97316'; // Make the hoop stand out
         ctx.stroke();
+        ctx.strokeStyle = '#6b7280'; // Reset stroke style
     }
 
     function draw() {

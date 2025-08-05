@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtIQ Scouting Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .card {
+            background-color: rgba(45, 55, 72, 0.85);
+            border: 1px solid rgba(74, 85, 104, 0.8);
+        }
+        .btn-stat:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="app-container" class="mx-auto relative z-10">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-orange-500">CourtIQ Scouting Panel</h1>
+            <p class="text-slate-400 mt-2">Dynamic V1.0</p>
+        </header>
+
+        <!-- Scouting Panel -->
+        <div id="scoutingPanel" class="flex flex-wrap gap-4 justify-center">
+            <!-- Player cards will be injected here by JavaScript -->
+            <p id="loadingMessage" class="text-lg text-gray-400">Loading players...</p>
+        </div>
+
+        <!-- Generate Report Button -->
+        <div class="mt-8 text-center">
+            <button id="generateReportBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-md">Generate Text Report</button>
+        </div>
+    </div>
+    
+    <script>
+        const app = {
+            players: [], // This will hold player data and their stats
+
+            init() {
+                this.fetchPlayers();
+                // Add event listeners for report generation etc. later
+            },
+
+            async fetchPlayers() {
+                try {
+                    const response = await fetch('/api/players');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const playersFromDB = await response.json();
+                    
+                    // Initialize local player objects with stats tracking
+                    this.players = playersFromDB.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        number: p.number || 'N/A',
+                        teamName: p.team_name || 'N/A',
+                        minutes: 0,
+                        points: 0,
+                        rebounds: 0,
+                        assists: 0,
+                        steals: 0,
+                        blocks: 0,
+                        turnovers: 0,
+                        personalFouls: 0,
+                        // Add more detailed stats fields as needed
+                    }));
+
+                    this.render();
+                } catch (error) {
+                    console.error("Could not fetch players:", error);
+                    document.getElementById('loadingMessage').textContent = 'Failed to load players. Please try again later.';
+                }
+            },
+
+            // Simplified increment function for demonstration
+            incrementStat(playerId, stat) {
+                const player = this.players.find(p => p.id === playerId);
+                if (player) {
+                    player[stat]++;
+                    this.render(); // Re-render to show the change
+                }
+            },
+
+            render() {
+                const scoutingPanel = document.getElementById('scoutingPanel');
+                const loadingMessage = document.getElementById('loadingMessage');
+
+                if (this.players.length === 0) {
+                    loadingMessage.textContent = 'No players assigned or available for scouting.';
+                    scoutingPanel.innerHTML = ''; // Clear any previous cards
+                    scoutingPanel.appendChild(loadingMessage);
+                    return;
+                }
+                
+                loadingMessage.style.display = 'none';
+
+                scoutingPanel.innerHTML = this.players.map(p => `
+                    <div class="card p-3 rounded-lg shadow-md w-full sm:w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.67rem)]">
+                        <div class="flex justify-between items-start mb-3 border-b border-slate-600 pb-2">
+                            <div>
+                                <h3 class="text-lg font-bold text-orange-400">${p.name}</h3>
+                                <p class="text-sm text-slate-400">#${p.number} - ${p.teamName}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xl font-mono font-bold mt-1">00:00</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+                            <div><p class="text-xl font-bold">${p.points}</p><p class="text-xs text-slate-400">Points</p></div>
+                            <div><p class="text-xl font-bold">${p.rebounds}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'rebounds')">REB</button></div>
+                            <div><p class="text-xl font-bold">${p.assists}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'assists')">AST</button></div>
+                            <div><p class="text-xl font-bold">${p.turnovers}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'turnovers')">TO</button></div>
+                            <div><p class="text-xl font-bold">${p.steals}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'steals')">STL</button></div>
+                            <div><p class="text-xl font-bold">${p.blocks}</p><button class="btn-stat text-xs bg-slate-600 w-full mt-1 py-1 rounded" onclick="app.incrementStat(${p.id}, 'blocks')">BLK</button></div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>

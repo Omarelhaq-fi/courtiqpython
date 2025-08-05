@@ -28,6 +28,7 @@
             <a href="#" class="nav-link active flex items-center py-3 px-6" onclick="showTab('dashboard')"><i class="fas fa-tachometer-alt mr-3"></i> Dashboard</a>
             <a href="#" class="nav-link flex items-center py-3 px-6" onclick="showTab('scouting')"><i class="fas fa-clipboard-list mr-3"></i> Scouting Panel</a>
             <a href="#" class="nav-link flex items-center py-3 px-6" onclick="showTab('coach_board')"><i class="fas fa-chalkboard-teacher mr-3"></i> Coach Board</a>
+            <a href="#" class="nav-link flex items-center py-3 px-6" onclick="showTab('training_planner')"><i class="fas fa-calendar-alt mr-3"></i> Training Planner</a>
             <a href="#" class="nav-link flex items-center py-3 px-6" onclick="showTab('reports')"><i class="fas fa-chart-bar mr-3"></i> Reports</a>
             {% if role == 'admin' %}<a href="#" class="nav-link flex items-center py-3 px-6" onclick="showTab('admin')"><i class="fas fa-users-cog mr-3"></i> Admin Panel</a>{% endif %}
         </nav>
@@ -44,67 +45,27 @@
         <div id="dashboard" class="tab-content">
             <h2 class="text-3xl font-bold mb-6">Player Career Stats</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for player in players %}
-                <div class="content-card rounded-lg p-5 player-summary-card">
-                    <h3 class="font-bold text-xl text-white">{{ player.name }}</h3>
-                    <p class="text-orange-400">{{ player.team_name or 'No Team' }}</p>
-                    <div class="mt-4 grid grid-cols-3 gap-4 text-center">
-                        <div><p class="text-2xl font-bold">{{ "%.1f"|format(player.ppg) }}</p><p class="text-xs text-gray-400">PPG</p></div>
-                        <div><p class="text-2xl font-bold">{{ "%.1f"|format(player.rpg) }}</p><p class="text-xs text-gray-400">RPG</p></div>
-                        <div><p class="text-2xl font-bold">{{ "%.1f"|format(player.apg) }}</p><p class="text-xs text-gray-400">APG</p></div>
-                    </div>
-                </div>
-                {% else %}
-                    <p class="text-gray-400">No players found. Add teams and players from the Admin Panel.</p>
-                {% endfor %}
+                {% for player in players %}<div class="content-card rounded-lg p-5 player-summary-card"><h3 class="font-bold text-xl text-white">{{ player.name }}</h3><p class="text-orange-400">{{ player.team_name or 'No Team' }}</p><div class="mt-4 grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold">{{ "%.1f"|format(player.ppg) }}</p><p class="text-xs text-gray-400">PPG</p></div><div><p class="text-2xl font-bold">{{ "%.1f"|format(player.rpg) }}</p><p class="text-xs text-gray-400">RPG</p></div><div><p class="text-2xl font-bold">{{ "%.1f"|format(player.apg) }}</p><p class="text-xs text-gray-400">APG</p></div></div></div>{% else %}<p class="text-gray-400">No players found.</p>{% endfor %}
             </div>
         </div>
 
-        <!-- Scouting Panel Tab -->
-        <div id="scouting" class="tab-content hidden h-full">
-             <h2 class="text-3xl font-bold mb-6">Scouting Panel</h2>
-             <div class="content-card rounded-lg h-[calc(100%-5rem)]">
-                <iframe src="{{ url_for('scouting_panel') }}" class="w-full h-full border-0 rounded-lg"></iframe>
-             </div>
-        </div>
+        <!-- Other Tabs -->
+        <div id="scouting" class="tab-content hidden h-full"><h2 class="text-3xl font-bold mb-6">Scouting Panel</h2><div class="content-card rounded-lg h-[calc(100%-5rem)]"><iframe src="{{ url_for('scouting_panel') }}" class="w-full h-full border-0 rounded-lg"></iframe></div></div>
+        <div id="coach_board" class="tab-content hidden h-full"><h2 class="text-3xl font-bold mb-6">Coach Board</h2><div class="content-card rounded-lg h-[calc(100%-5rem)]"><iframe src="{{ url_for('coach_board') }}" class="w-full h-full border-0 rounded-lg"></iframe></div></div>
+        <div id="training_planner" class="tab-content hidden h-full"><h2 class="text-3xl font-bold mb-6">Training Planner</h2><div class="content-card rounded-lg h-[calc(100%-5rem)]"><iframe src="{{ url_for('training_planner') }}" class="w-full h-full border-0 rounded-lg"></iframe></div></div>
+        <div id="reports" class="tab-content hidden"><h2 class="text-3xl font-bold mb-6">Reports History</h2><div class="content-card rounded-lg p-5"><ul class="space-y-3">{% for report in reports %}<li><a href="{{ url_for('view_report', report_id=report.id) }}" class="text-orange-500 hover:underline text-lg">Report for {{ report.team_name }} - {{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</a></li>{% else %}<p class="text-gray-400">No reports generated yet.</p>{% endfor %}</ul></div></div>
         
-        <!-- Coach Board Tab -->
-        <div id="coach_board" class="tab-content hidden h-full">
-             <h2 class="text-3xl font-bold mb-6">Coach Board</h2>
-             <div class="content-card rounded-lg h-[calc(100%-5rem)]">
-                <iframe src="{{ url_for('coach_board') }}" class="w-full h-full border-0 rounded-lg"></iframe>
-             </div>
-        </div>
-
-        <!-- Reports Tab -->
-        <div id="reports" class="tab-content hidden">
-            <h2 class="text-3xl font-bold mb-6">Reports History</h2>
-            <div class="content-card rounded-lg p-5">
-                <ul class="space-y-3">
-                    {% for report in reports %}
-                    <li>
-                        <a href="{{ url_for('view_report', report_id=report.id) }}" class="text-orange-500 hover:underline text-lg">
-                            Report for {{ report.team_name }} - {{ report.created_at.strftime('%Y-%m-%d %H:%M') }}
-                        </a>
-                    </li>
-                    {% else %}
-                    <p class="text-gray-400">No reports have been generated yet.</p>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-
         <!-- Admin Panel Tab -->
         {% if role == 'admin' %}
         <div id="admin" class="tab-content hidden">
             <h2 class="text-3xl font-bold mb-6">Admin Panel</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div class="space-y-8">
-                    <div class="content-card rounded-lg p-6"><h3 class="text-xl font-bold mb-4">Add New Team</h3><form action="{{ url_for('add_team') }}" method="POST" class="space-y-4"><input type="text" name="team_name" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Team Name"><button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Team</button></form></div>
-                    <div class="content-card rounded-lg p-6"><h3 class="text-xl font-bold mb-4">Add New Player</h3><form action="{{ url_for('add_player') }}" method="POST" class="space-y-4"><select name="team_id" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2"><option value="">Select Team...</option>{% for team in teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}</select><input type="text" name="player_name" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Player Name"><input type="text" name="player_number" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Player Number"><input type="text" name="position" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Position"><button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Player</button></form></div>
-                    <div class="content-card rounded-lg p-6"><h3 class="text-xl font-bold mb-4">Add New Coach</h3><form action="{{ url_for('add_coach') }}" method="POST" class="space-y-4"><input type="text" name="coach_username" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Coach Username"><input type="password" name="coach_password" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Coach Password"><button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Coach</button></form></div>
+                    <div class="content-card rounded-lg p-6"><h3 class="text-xl font-bold mb-4">Add New Team</h3><form action="{{ url_for('add_team') }}" method="POST"><input type="text" name="team_name" required class="w-full bg-gray-700 border-gray-600 rounded-md p-2" placeholder="Team Name"><button type="submit" class="mt-4 w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Team</button></form></div>
+                    <div class="content-card rounded-lg p-6"><h3 class="text-xl font-bold mb-4">Add New Player</h3><form action="{{ url_for('add_player') }}" method="POST" class="space-y-4"><select name="team_id" required class="w-full bg-gray-700 border-gray-600 rounded-md p-2"><option value="">Select Team...</option>{% for team in teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}</select><input type="text" name="player_name" required class="w-full bg-gray-700 border-gray-600 rounded-md p-2" placeholder="Player Name"><input type="text" name="player_number" class="w-full bg-gray-700 border-gray-600 rounded-md p-2" placeholder="Player Number"><input type="text" name="position" class="w-full bg-gray-700 border-gray-600 rounded-md p-2" placeholder="Position"><button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Player</button></form></div>
+                    <div class="content-card rounded-lg p-6"><h3 class="text-xl font-bold mb-4">Add New Coach</h3><form action="{{ url_for('add_coach') }}" method="POST" class="space-y-4"><input type="text" name="coach_username" required class="w-full bg-gray-700 border-gray-600 rounded-md p-2" placeholder="Coach Username"><input type="password" name="coach_password" required class="w-full bg-gray-700 border-gray-600 rounded-md p-2" placeholder="Coach Password"><button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Coach</button></form></div>
                 </div>
-                <div class="content-card rounded-lg p-6"><h3 class="text-xl font-bold mb-4">Assign Resources to Coach</h3><form action="{{ url_for('assign_resources') }}" method="POST" class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Select Coach</label><select name="coach_id" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2"><option value="">Select Coach...</option>{% for coach in coaches %}<option value="{{ coach.id }}">{{ coach.username }}</option>{% endfor %}</select></div><div><label class="block text-sm font-medium text-gray-300">Assign Teams (Multiple)</label><select name="assigned_teams" multiple class="multi-select w-full bg-gray-700 border border-gray-600 rounded-md p-2">{% for team in teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}</select></div><div><label class="block text-sm font-medium text-gray-300">Assign Individual Players (Multiple)</label><select name="assigned_players" multiple class="multi-select w-full bg-gray-700 border border-gray-600 rounded-md p-2">{% for player in players %}<option value="{{ player.id }}">{{ player.name }} ({{player.team_name}})</option>{% endfor %}</select></div><button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Save Assignments</button></form></div>
+                <div class="content-card rounded-lg p-6"><h3 class="text-xl font-bold mb-4">Assign Resources to Coach</h3><form action="{{ url_for('assign_resources') }}" method="POST" class="space-y-4"><div><label class="block text-sm font-medium">Select Coach</label><select name="coach_id" required class="w-full bg-gray-700 border-gray-600 rounded-md p-2"><option value="">Select Coach...</option>{% for coach in coaches %}<option value="{{ coach.id }}">{{ coach.username }}</option>{% endfor %}</select></div><div><label class="block text-sm font-medium">Assign Teams</label><select name="assigned_teams" multiple class="multi-select w-full bg-gray-700 border-gray-600 rounded-md p-2">{% for team in teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}</select></div><div><label class="block text-sm font-medium">Assign Players</label><select name="assigned_players" multiple class="multi-select w-full bg-gray-700 border-gray-600 rounded-md p-2">{% for player in players %}<option value="{{ player.id }}">{{ player.name }} ({{player.team_name}})</option>{% endfor %}</select></div><button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Save Assignments</button></form></div>
             </div>
         </div>
         {% endif %}

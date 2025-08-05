@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtIQ - Coach Board</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #1a202c; color: #e2e8f0; }
+        #board-canvas { background-color: #2d3748; cursor: crosshair; touch-action: none; }
+        .tool-btn, .player-token { transition: all 0.2s ease-in-out; }
+        .tool-btn.active { background-color: #F97316; color: white; }
+        .player-token { cursor: grab; background-color: #F97316; }
+        .player-token:active { cursor: grabbing; }
+        .player-list-item { cursor: grab; }
+        .player-list-item:active { cursor: grabbing; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Header / Toolbar -->
+    <header class="bg-gray-800 p-3 flex items-center justify-between gap-4 flex-wrap">
+        <h1 class="text-xl font-bold text-orange-500">Coach Board</h1>
+        <div class="flex items-center gap-4 flex-wrap">
+            <div class="flex items-center gap-2">
+                <button id="pen-tool" class="tool-btn active bg-gray-700 p-2 rounded-md" title="Pen"><i class="fas fa-pencil-alt"></i></button>
+                <button id="eraser-tool" class="tool-btn bg-gray-700 p-2 rounded-md" title="Eraser"><i class="fas fa-eraser"></i></button>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="color" id="color-picker" value="#FFFFFF" class="w-10 h-10 bg-gray-700 rounded-md cursor-pointer">
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="line-width" class="text-sm">Width:</label>
+                <input type="range" id="line-width" min="1" max="20" value="3" class="w-24">
+            </div>
+            <button id="clear-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">Clear Board</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex flex-1 overflow-hidden">
+        <!-- Player Roster Sidebar -->
+        <aside class="w-64 bg-gray-900 p-4 overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4">Your Players</h2>
+            <div id="player-list" class="space-y-2">
+                <p class="text-gray-400 text-sm">Loading players...</p>
+            </div>
+        </aside>
+
+        <!-- Canvas -->
+        <div id="canvas-container" class="flex-1 bg-gray-800 flex items-center justify-center p-4">
+            <canvas id="board-canvas"></canvas>
+        </div>
+    </main>
+
+    <script>
+    const canvas = document.getElementById('board-canvas');
+    const ctx = canvas.getContext('2d');
+    const canvasContainer = document.getElementById('canvas-container');
+    const playerListEl = document.getElementById('player-list');
+    
+    // --- Tool DOM Elements ---
+    const penTool = document.getElementById('pen-tool');
+    const eraserTool = document.getElementById('eraser-tool');
+    const colorPicker = document.getElementById('color-picker');
+    const lineWidthRange = document.getElementById('line-width');
+    const clearBtn = document.getElementById('clear-btn');
+
+    let isDrawing = false;
+    let currentTool = 'pen';
+    let paths = []; // To store all drawing paths
+    let playerTokens = []; // To store player tokens on the canvas
+    let draggedToken = null;
+    let offsetX, offsetY;
+
+    function resizeCanvas() {
+        const containerRect = canvasContainer.getBoundingClientRect();
+        const aspectRatio = 500 / 940; // width / height for a full court
+        let newWidth = containerRect.width - 32; // padding
+        let newHeight = newWidth * aspectRatio;
+
+        if (newHeight > containerRect.height - 32) {
+            newHeight = containerRect.height - 32;
+            newWidth = newHeight / aspectRatio;
+        }
+        
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        draw(); // Redraw everything after resize
+    }
+
+    function drawCourt() {
+        ctx.strokeStyle = '#6b7280';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = '#2d3748';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Center line
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 2, 0);
+        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.stroke();
+
+        // Center circle
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, canvas.width * 0.08, 0, 2 * Math.PI);
+        ctx.stroke();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawCourt();
+
+        // Draw all saved paths
+        paths.forEach(path => {
+            ctx.beginPath();
+            ctx.strokeStyle = path.color;
+            ctx.lineWidth = path.width;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            path.points.forEach((point, index) => {
+                if (index === 0) {
+                    ctx.moveTo(point.x, point.y);
+                } else {
+                    ctx.lineTo(point.x, point.y);
+                }
+            });
+            ctx.stroke();
+        });
+        
+        // Draw player tokens
+        playerTokens.forEach(token => {
+            ctx.beginPath();
+            ctx.arc(token.x, token.y, 20, 0, Math.PI * 2);
+            ctx.fillStyle = '#F97316';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 16px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(token.number, token.x, token.y);
+        });
+    }
+    
+    function startDrawing(e) {
+        e.preventDefault();
+        const pos = getCanvasPos(e);
+        
+        // Check if we are dragging a token
+        draggedToken = playerTokens.find(token => 
+            Math.sqrt((pos.x - token.x)**2 + (pos.y - token.y)**2) < 20
+        );
+
+        if (draggedToken) {
+            isDrawing = false; // We are dragging, not drawing
+            offsetX = pos.x - draggedToken.x;
+            offsetY = pos.y - draggedToken.y;
+        } else {
+            isDrawing = true;
+            const newPath = {
+                color: currentTool === 'pen' ? colorPicker.value : '#2d3748', // Eraser is just drawing the background color
+                width: currentTool === 'pen' ? lineWidthRange.value : 25,
+                points: [{ x: pos.x, y: pos.y }]
+            };
+            paths.push(newPath);
+        }
+    }
+
+    function drawOnMove(e) {
+        if (!isDrawing && !draggedToken) return;
+        e.preventDefault();
+        const pos = getCanvasPos(e);
+
+        if (draggedToken) {
+            draggedToken.x = pos.x - offsetX;
+            draggedToken.y = pos.y - offsetY;
+        } else if (isDrawing) {
+            paths[paths.length - 1].points.push({ x: pos.x, y: pos.y });
+        }
+        draw();
+    }
+
+    function stopDrawing() {
+        isDrawing = false;
+        draggedToken = null;
+    }
+
+    function getCanvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        let x, y;
+        if (e.touches) {
+            x = (e.touches[0].clientX - rect.left) * scaleX;
+            y = (e.touches[0].clientY - rect.top) * scaleY;
+        } else {
+            x = (e.clientX - rect.left) * scaleX;
+            y = (e.clientY - rect.top) * scaleY;
+        }
+        return { x, y };
+    }
+
+    async function fetchAndRenderPlayers() {
+        try {
+            const response = await fetch('/api/players');
+            const players = await response.json();
+            playerListEl.innerHTML = players.map(p => `
+                <div class="player-list-item bg-gray-700 p-2 rounded-md flex items-center gap-2" draggable="true" data-player-id="${p.id}" data-player-name="${p.name}" data-player-number="${p.number}">
+                    <div class="bg-orange-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">${p.number}</div>
+                    <span class="font-medium text-sm">${p.name}</span>
+                </div>
+            `).join('');
+            
+            document.querySelectorAll('.player-list-item').forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                        id: e.target.dataset.playerId,
+                        name: e.target.dataset.playerName,
+                        number: e.target.dataset.playerNumber
+                    }));
+                });
+            });
+
+        } catch (error) {
+            playerListEl.innerHTML = '<p class="text-red-400 text-sm">Failed to load players.</p>';
+        }
+    }
+    
+    // Event Listeners
+    window.addEventListener('resize', resizeCanvas);
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', drawOnMove);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+    canvas.addEventListener('touchstart', startDrawing);
+    canvas.addEventListener('touchmove', drawOnMove);
+    canvas.addEventListener('touchend', stopDrawing);
+    
+    clearBtn.addEventListener('click', () => {
+        paths = [];
+        playerTokens = [];
+        draw();
+    });
+    
+    penTool.addEventListener('click', () => {
+        currentTool = 'pen';
+        penTool.classList.add('active');
+        eraserTool.classList.remove('active');
+    });
+
+    eraserTool.addEventListener('click', () => {
+        currentTool = 'eraser';
+        eraserTool.classList.add('active');
+        penTool.classList.remove('active');
+    });
+    
+    canvas.addEventListener('dragover', (e) => e.preventDefault());
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const playerData = JSON.parse(e.dataTransfer.getData('text/plain'));
+        const pos = getCanvasPos(e);
+        
+        // Avoid adding duplicate tokens
+        if (!playerTokens.some(token => token.id === playerData.id)) {
+            playerTokens.push({
+                id: playerData.id,
+                name: playerData.name,
+                number: playerData.number,
+                x: pos.x,
+                y: pos.y
+            });
+            draw();
+        }
+    });
+
+    // Initial setup
+    resizeCanvas();
+    fetchAndRenderPlayers();
+    </script>
+</body>
+</html>

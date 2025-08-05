@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtIQ - Scouting Report: {{ report.team_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #F3F4F6; }
+        .player-card.active, .player-card:hover { background-color: #374151; }
+        .player-card.active { border-left-color: #F97316; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-gray-900/80 backdrop-blur-sm sticky top-0 w-full z-50">
+        <nav class="container mx-auto px-6 py-4 flex items-center justify-between">
+            <a href="{{ url_for('dashboard') }}" class="text-2xl font-bold text-white">Court<span class="text-orange-500">IQ</span></a>
+            <div class="text-lg text-gray-300 font-semibold">Scouting Report</div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-12">
+        <h1 class="text-3xl font-bold mb-2">Report for: <span class="text-orange-400">{{ report.team_name }}</span></h1>
+        <p class="text-gray-400 mb-8">Generated on: {{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+
+        <div class="grid lg:grid-cols-12 gap-8">
+            <!-- Left Column: Player List -->
+            <div class="lg:col-span-4">
+                <h2 class="text-2xl font-bold mb-4">Scouted Players</h2>
+                <div id="player-list" class="space-y-3">
+                    <!-- Player cards will be injected here -->
+                </div>
+            </div>
+
+            <!-- Right Column: Player Details -->
+            <div class="lg:col-span-8">
+                <div id="player-details-container" class="bg-gray-800 p-6 rounded-lg sticky top-24">
+                   <div class="text-center text-gray-400 py-16">Select a player to see their details.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const reportData = JSON.parse('{{ report_data | tojson | safe }}');
+        const playerListContainer = document.getElementById('player-list');
+        const playerDetailsContainer = document.getElementById('player-details-container');
+
+        function renderPlayerList() {
+            playerListContainer.innerHTML = reportData.map(player => `
+                <div class="player-card bg-gray-800 p-3 rounded-lg flex items-center gap-4 border-l-4 border-transparent cursor-pointer" data-player-id="${player.id}">
+                    <div>
+                        <h4 class="font-bold text-lg">${player.name} #${player.number}</h4>
+                        <p class="text-sm text-orange-400">${player.points} PTS | ${player.rebounds} REB | ${player.assists} AST</p>
+                    </div>
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.player-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    const playerId = parseInt(e.currentTarget.dataset.playerId, 10);
+                    showPlayerDetails(playerId);
+                    document.querySelectorAll('.player-card').forEach(c => c.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                });
+            });
+        }
+
+        function showPlayerDetails(playerId) {
+            const player = reportData.find(p => p.id === playerId);
+            if (!player) return;
+            
+            const formatTime = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+            const fg2_pct = player.fg2a > 0 ? ((player.fg2m / player.fg2a) * 100).toFixed(1) : '0.0';
+            const fg3_pct = player.fg3a > 0 ? ((player.fg3m / player.fg3a) * 100).toFixed(1) : '0.0';
+            const ft_pct = player.fta > 0 ? ((player.ftm / player.fta) * 100).toFixed(1) : '0.0';
+
+            playerDetailsContainer.innerHTML = `
+                <div class="flex flex-col sm:flex-row gap-6 items-center mb-6">
+                    <div>
+                        <h3 class="text-4xl font-bold">${player.name}</h3>
+                        <p class="text-lg text-gray-400">#${player.number} | MIN: ${formatTime(player.minutes)}</p>
+                    </div>
+                </div>
+                
+                <div class="mb-8">
+                    <h4 class="text-xl font-bold mb-4">Full Statistics</h4>
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-y-6 gap-x-4 text-center">
+                            <div><div class="text-xs text-gray-400">PTS</div><div class="text-xl font-bold">${player.points}</div></div>
+                            <div><div class="text-xs text-gray-400">REB</div><div class="text-xl font-bold">${player.rebounds}</div></div>
+                            <div><div class="text-xs text-gray-400">AST</div><div class="text-xl font-bold">${player.assists}</div></div>
+                            <div><div class="text-xs text-gray-400">2PT M-A</div><div class="text-xl font-bold">${player.fg2m}-${player.fg2a}</div></div>
+                            <div><div class="text-xs text-gray-400">2P%</div><div class="text-xl font-bold">${fg2_pct}</div></div>
+                            <div><div class="text-xs text-gray-400">3PT M-A</div><div class="text-xl font-bold">${player.fg3m}-${player.fg3a}</div></div>
+                            <div><div class="text-xs text-gray-400">3P%</div><div class="text-xl font-bold">${fg3_pct}</div></div>
+                            <div><div class="text-xs text-gray-400">FT M-A</div><div class="text-xl font-bold">${player.ftm}-${player.fta}</div></div>
+                            <div><div class="text-xs text-gray-400">FT%</div><div class="text-xl font-bold">${ft_pct}</div></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initialize() {
+            if (reportData && reportData.length > 0) {
+                renderPlayerList();
+                showPlayerDetails(reportData[0].id);
+                const firstCard = playerListContainer.querySelector('.player-card');
+                if(firstCard) firstCard.classList.add('active');
+            } else {
+                 playerDetailsContainer.innerHTML = '<div class="text-center text-gray-400 py-16">No player data found in this report.</div>';
+            }
+        }
+
+        initialize();
+    });
+    </script>
+</body>
+</html>

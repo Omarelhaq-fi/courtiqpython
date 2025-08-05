@@ -81,6 +81,12 @@ def scouting_panel():
     if 'user_id' not in session: return redirect(url_for('login'))
     return render_template('scouting_panel.html')
 
+@app.route('/coach_board')
+def coach_board():
+    """Renders the new coach board page."""
+    if 'user_id' not in session: return redirect(url_for('login'))
+    return render_template('coach_board.html')
+
 @app.route('/report/<int:report_id>')
 def view_report(report_id):
     if 'user_id' not in session: return redirect(url_for('login'))
@@ -98,7 +104,6 @@ def view_report(report_id):
 # --- API Routes ---
 @app.route('/api/players')
 def api_players():
-    # This function remains the same
     if 'user_id' not in session: return jsonify({"error": "Not authorized"}), 401
     db = get_db()
     with db.cursor() as cursor:
@@ -131,36 +136,21 @@ def save_report():
 
     db = get_db()
     with db.cursor() as cursor:
-        # 1. Insert the new report
         cursor.execute(
             "INSERT INTO reports (user_id, team_name, opponent_score, report_data) VALUES (%s, %s, %s, %s)",
             (user_id, team_name, opponent_score, report_data_json)
         )
         report_id = cursor.lastrowid
-
-        # 2. Update aggregate stats for each player in the report
         for player_report in players_data:
             cursor.execute("""
-                UPDATE players
-                SET
-                    games_played = games_played + 1,
-                    total_minutes = total_minutes + %s,
-                    total_points = total_points + %s,
-                    total_rebounds = total_rebounds + %s,
-                    total_assists = total_assists + %s,
-                    total_steals = total_steals + %s,
-                    total_blocks = total_blocks + %s,
-                    total_turnovers = total_turnovers + %s
+                UPDATE players SET games_played = games_played + 1, total_minutes = total_minutes + %s,
+                    total_points = total_points + %s, total_rebounds = total_rebounds + %s, total_assists = total_assists + %s,
+                    total_steals = total_steals + %s, total_blocks = total_blocks + %s, total_turnovers = total_turnovers + %s
                 WHERE id = %s
             """, (
-                player_report.get('minutes', 0),
-                player_report.get('points', 0),
-                player_report.get('rebounds', 0),
-                player_report.get('assists', 0),
-                player_report.get('steals', 0),
-                player_report.get('blocks', 0),
-                player_report.get('turnovers', 0),
-                player_report.get('id')
+                player_report.get('minutes', 0), player_report.get('points', 0), player_report.get('rebounds', 0),
+                player_report.get('assists', 0), player_report.get('steals', 0), player_report.get('blocks', 0),
+                player_report.get('turnovers', 0), player_report.get('id')
             ))
     db.commit()
     return jsonify({"success": True, "reportId": report_id})

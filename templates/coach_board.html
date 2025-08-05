@@ -93,77 +93,73 @@
     }
 
     function drawCourt() {
-        // --- Scaling factors based on NBA half-court ---
         const w = canvas.width;
         const h = canvas.height;
-        const scale = w / 50; // 50ft wide
-
-        // --- Scaled dimensions ---
-        const keyWidth = 12 * scale;
-        const keyHeight = 19 * scale;
-        const hoopCenterY = 5.25 * scale;
-        const threePointSideX = 3 * scale;
-        const threePointRadius = 23.75 * scale;
-        const backboardWidth = 6 * scale;
-        const backboardOffsetY = 4 * scale;
-        const hoopRadius = 0.75 * scale;
-
-        // --- Corrected 3-point line calculation ---
-        // Find the Y coordinate where the straight line part of the 3-point line meets the arc
-        const dx = w / 2 - threePointSideX;
-        // Handle potential floating point inaccuracies or resize issues where dx > radius
-        const dy_squared = Math.max(0, threePointRadius**2 - dx**2);
-        const threePointArcStartY = hoopCenterY + Math.sqrt(dy_squared);
-
-        // --- Drawing ---
-        ctx.strokeStyle = '#6b7280';
-        ctx.lineWidth = 2;
+        
+        // Clear canvas and set background
         ctx.fillStyle = '#2d3748';
         ctx.fillRect(0, 0, w, h);
 
-        // The Key (Paint)
-        ctx.strokeRect((w - keyWidth) / 2, 0, keyWidth, keyHeight);
-        
-        // Free throw circle (top part - solid)
+        // --- Define Court Geometry (based on 50ft width) ---
+        const scale = w / 50;
+        const court = {
+            keyWidth: 12 * scale,
+            keyHeight: 19 * scale,
+            hoopRadius: 0.75 * scale,
+            hoopCenterX: w / 2,
+            hoopCenterY: 5.25 * scale,
+            backboardWidth: 6 * scale,
+            backboardOffsetY: 4 * scale,
+            threePointRadius: 23.75 * scale,
+            threePointSideLineX: 3 * scale
+        };
+
+        // --- Set default line style ---
+        ctx.strokeStyle = '#6b7280';
+        ctx.lineWidth = 2;
+
+        // --- Draw Key and Free Throw Circle ---
+        ctx.strokeRect((w - court.keyWidth) / 2, 0, court.keyWidth, court.keyHeight);
         ctx.beginPath();
-        ctx.arc(w / 2, keyHeight, keyWidth / 2, Math.PI, 0, false);
+        ctx.arc(court.hoopCenterX, court.keyHeight, court.keyWidth / 2, 0, Math.PI, true);
         ctx.stroke();
-        
-        // Free throw circle (bottom part - dashed)
         ctx.beginPath();
         ctx.setLineDash([5, 5]);
-        ctx.arc(w / 2, keyHeight, keyWidth / 2, 0, Math.PI, false);
+        ctx.arc(court.hoopCenterX, court.keyHeight, court.keyWidth / 2, 0, Math.PI, false);
         ctx.stroke();
-        ctx.setLineDash([]); // Reset to solid line
+        ctx.setLineDash([]);
 
-        // Three-point line (NEW CORRECTED LOGIC)
+        // --- Draw Three-Point Line ---
+        // Calculate the Y-coordinate where the arc meets the straight line
+        // using pythagorean theorem: r^2 = dx^2 + dy^2
+        const dx = court.hoopCenterX - court.threePointSideLineX;
+        const dy = Math.sqrt(Math.max(0, court.threePointRadius**2 - dx**2));
+        const arcIntersectionY = court.hoopCenterY + dy;
+        
+        // Calculate the start and end angles for the arc
+        const startAngle = Math.atan2(arcIntersectionY - court.hoopCenterY, court.threePointSideLineX - court.hoopCenterX);
+        const endAngle = Math.atan2(arcIntersectionY - court.hoopCenterY, (w - court.threePointSideLineX) - court.hoopCenterX);
+
         ctx.beginPath();
-        ctx.moveTo(threePointSideX, 0); // Start at baseline left
-        ctx.lineTo(threePointSideX, threePointArcStartY); // Straight part left
+        ctx.moveTo(court.threePointSideLineX, 0); // Start at left baseline
+        ctx.lineTo(court.threePointSideLineX, arcIntersectionY); // Draw left straight line
+        ctx.arc(court.hoopCenterX, court.hoopCenterY, court.threePointRadius, startAngle, endAngle, false); // Draw the arc
+        ctx.lineTo(w - court.threePointSideLineX, 0); // Draw right straight line to baseline
+        ctx.stroke();
         
-        // The arc
-        const startAngle = Math.atan2(threePointArcStartY - hoopCenterY, threePointSideX - w/2);
-        const endAngle = Math.atan2(threePointArcStartY - hoopCenterY, (w - threePointSideX) - w/2);
-        ctx.arc(w / 2, hoopCenterY, threePointRadius, startAngle, endAngle, false);
-        
-        // Straight part right, connecting to the end of the arc
-        ctx.lineTo(w - threePointSideX, 0);
+        // --- Draw Backboard ---
+        ctx.beginPath();
+        ctx.moveTo((w - court.backboardWidth) / 2, court.backboardOffsetY);
+        ctx.lineTo((w + court.backboardWidth) / 2, court.backboardOffsetY);
+        ctx.lineWidth = 4;
         ctx.stroke();
 
-        // Backboard
+        // --- Draw Hoop ---
         ctx.beginPath();
-        ctx.moveTo((w - backboardWidth) / 2, backboardOffsetY);
-        ctx.lineTo((w + backboardWidth) / 2, backboardOffsetY);
-        ctx.lineWidth = 4; // Backboard is thicker
+        ctx.arc(court.hoopCenterX, court.hoopCenterY, court.hoopRadius, 0, 2 * Math.PI);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#F97316';
         ctx.stroke();
-        
-        // Hoop
-        ctx.beginPath();
-        ctx.arc(w / 2, hoopCenterY, hoopRadius, 0, 2 * Math.PI);
-        ctx.lineWidth = 2; // Reset line width
-        ctx.strokeStyle = '#F97316'; // Make the hoop stand out
-        ctx.stroke();
-        ctx.strokeStyle = '#6b7280'; // Reset stroke style
     }
 
     function draw() {

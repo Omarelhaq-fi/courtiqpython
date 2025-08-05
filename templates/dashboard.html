@@ -8,30 +8,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #111827;
-            color: #F3F4F6;
-        }
-        .sidebar {
-            background-color: #1F2937;
-        }
-        .nav-link {
-            color: #9CA3AF;
-            transition: all 0.2s ease-in-out;
-        }
-        .nav-link:hover, .nav-link.active {
-            background-color: #374151;
-            color: #F97316;
-        }
-        .content-card {
-             background-color: #1f2937;
-             border: 1px solid #374151;
-        }
-        .player-summary-card {
-            background: linear-gradient(to right, #374151, #1f2937);
-            border-left: 4px solid #F97316;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #F3F4F6; }
+        .sidebar { background-color: #1F2937; }
+        .nav-link { color: #9CA3AF; transition: all 0.2s ease-in-out; }
+        .nav-link:hover, .nav-link.active { background-color: #374151; color: #F97316; }
+        .content-card { background-color: #1f2937; border: 1px solid #374151; }
+        .player-summary-card { background: linear-gradient(to right, #374151, #1f2937); border-left: 4px solid #F97316; }
+        .multi-select { height: 150px; }
     </style>
 </head>
 <body class="flex h-screen">
@@ -59,7 +42,7 @@
         </nav>
         <div class="absolute bottom-0 w-64 p-6 border-t border-gray-700">
              <div class="text-gray-400 text-sm">Logged in as:</div>
-             <div class="font-bold text-white">{{ username }} ({{ role }})</div>
+             <div class="font-bold text-white">{{ username }}</div>
              <a href="{{ url_for('logout') }}" class="block w-full text-center mt-4 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">
                 Logout
             </a>
@@ -76,25 +59,11 @@
                     {% for player in players %}
                     <div class="content-card rounded-lg p-5 player-summary-card">
                         <h3 class="font-bold text-xl text-white">{{ player.name }}</h3>
-                        <p class="text-orange-400">{{ player.position or 'N/A' }}</p>
-                        <div class="mt-4 grid grid-cols-3 gap-4 text-center">
-                            <div>
-                                <p class="text-2xl font-bold">{{ player.ppg or '0.0' }}</p>
-                                <p class="text-xs text-gray-400">PPG</p>
-                            </div>
-                            <div>
-                                <p class="text-2xl font-bold">{{ player.rpg or '0.0' }}</p>
-                                <p class="text-xs text-gray-400">RPG</p>
-                            </div>
-                            <div>
-                                <p class="text-2xl font-bold">{{ player.apg or '0.0' }}</p>
-                                <p class="text-xs text-gray-400">APG</p>
-                            </div>
-                        </div>
+                        <p class="text-orange-400">{{ player.team_name or 'No Team' }}</p>
                     </div>
                     {% endfor %}
                 {% else %}
-                    <p class="text-gray-400">No players found. Add players from the Admin Panel.</p>
+                    <p class="text-gray-400">No players found. Add teams and players from the Admin Panel.</p>
                 {% endif %}
             </div>
         </div>
@@ -103,56 +72,80 @@
         <div id="scouting" class="tab-content hidden h-full">
              <h2 class="text-3xl font-bold mb-6">Scouting Panel</h2>
              <div class="content-card rounded-lg h-[calc(100%-5rem)]">
-                <!-- The scouting panel will be embedded here -->
-                <iframe src="{{ url_for('static', filename='scouting-panel-afadd86432g348c8X8.html') }}" class="w-full h-full border-0 rounded-lg"></iframe>
+                <iframe src="{{ url_for('scouting_panel') }}" class="w-full h-full border-0 rounded-lg"></iframe>
              </div>
         </div>
 
         <!-- Reports Tab -->
         <div id="reports" class="tab-content hidden">
             <h2 class="text-3xl font-bold mb-6">Reports</h2>
-            <div class="content-card rounded-lg p-5">
-                <p class="text-gray-400">Generated reports will appear here. When you generate a report from the scouting panel, a link to it will be automatically added to this list.</p>
-                <!-- Example of a report link -->
-                <div class="mt-4">
-                    <a href="#" class="text-orange-500 hover:underline">Report - 2025-08-05 - Player Name</a>
-                </div>
-            </div>
         </div>
 
         <!-- Admin Panel Tab -->
         {% if role == 'admin' %}
         <div id="admin" class="tab-content hidden">
             <h2 class="text-3xl font-bold mb-6">Admin Panel</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Add Team -->
-                <div class="content-card rounded-lg p-6">
-                    <h3 class="text-xl font-bold mb-4">Add New Team</h3>
-                    <form action="{{ url_for('add_team') }}" method="POST" class="space-y-4">
-                        <div>
-                            <label for="new-team-name" class="block text-sm font-medium text-gray-300">Team Name</label>
-                            <input type="text" id="new-team-name" name="team_name" required class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
-                        </div>
-                        <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Team</button>
-                    </form>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <!-- Management Column -->
+                <div class="space-y-8">
+                    <!-- Add Team -->
+                    <div class="content-card rounded-lg p-6">
+                        <h3 class="text-xl font-bold mb-4">Add New Team</h3>
+                        <form action="{{ url_for('add_team') }}" method="POST" class="space-y-4">
+                            <input type="text" name="team_name" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Team Name">
+                            <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Team</button>
+                        </form>
+                    </div>
+                    <!-- Add Player -->
+                    <div class="content-card rounded-lg p-6">
+                        <h3 class="text-xl font-bold mb-4">Add New Player</h3>
+                        <form action="{{ url_for('add_player') }}" method="POST" class="space-y-4">
+                            <select name="team_id" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2">
+                                <option value="">Select Team...</option>
+                                {% for team in teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}
+                            </select>
+                            <input type="text" name="player_name" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Player Name">
+                            <input type="text" name="player_number" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Player Number">
+                            <input type="text" name="position" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Position">
+                            <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Player</button>
+                        </form>
+                    </div>
+                    <!-- Add Coach -->
+                    <div class="content-card rounded-lg p-6">
+                        <h3 class="text-xl font-bold mb-4">Add New Coach</h3>
+                        <form action="{{ url_for('add_coach') }}" method="POST" class="space-y-4">
+                            <input type="text" name="coach_username" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Coach Username">
+                            <input type="password" name="coach_password" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2" placeholder="Coach Password">
+                            <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Coach</button>
+                        </form>
+                    </div>
                 </div>
-                <!-- Add Player -->
+
+                <!-- Assignment Column -->
                 <div class="content-card rounded-lg p-6">
-                    <h3 class="text-xl font-bold mb-4">Add New Player</h3>
-                    <form action="{{ url_for('add_player') }}" method="POST" class="space-y-4">
-                         <div>
-                            <label for="player-team" class="block text-sm font-medium text-gray-300">Select Team</label>
-                            <select id="player-team" name="team_id" required class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
-                                {% for team in teams %}
-                                <option value="{{ team.id }}">{{ team.name }}</option>
-                                {% endfor %}
+                    <h3 class="text-xl font-bold mb-4">Assign Resources to Coach</h3>
+                    <form action="{{ url_for('assign_resources') }}" method="POST" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300">Select Coach</label>
+                            <select name="coach_id" required class="w-full bg-gray-700 border border-gray-600 rounded-md p-2">
+                                <option value="">Select Coach...</option>
+                                {% for coach in coaches %}<option value="{{ coach.id }}">{{ coach.username }}</option>{% endfor %}
                             </select>
                         </div>
                         <div>
-                            <label for="new-player-name" class="block text-sm font-medium text-gray-300">Player Name</label>
-                            <input type="text" id="new-player-name" name="player_name" required class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <label class="block text-sm font-medium text-gray-300">Assign Teams (Multiple)</label>
+                            <select name="assigned_teams" multiple class="multi-select w-full bg-gray-700 border border-gray-600 rounded-md p-2">
+                                {% for team in teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}
+                            </select>
                         </div>
-                        <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Player</button>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300">Assign Individual Players (Multiple)</label>
+                            <select name="assigned_players" multiple class="multi-select w-full bg-gray-700 border border-gray-600 rounded-md p-2">
+                                {% for player in players %}<option value="{{ player.id }}">{{ player.name }} ({{player.team_name}})</option>{% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Save Assignments</button>
                     </form>
                 </div>
             </div>
@@ -162,21 +155,9 @@
 
     <script>
         function showTab(tabName) {
-            // Hide all tabs
-            const tabs = document.querySelectorAll('.tab-content');
-            tabs.forEach(tab => {
-                tab.classList.add('hidden');
-            });
-
-            // Show the selected tab
-            const activeTab = document.getElementById(tabName);
-            if (activeTab) {
-                activeTab.classList.remove('hidden');
-            }
-            
-            // Update active link style
-            const links = document.querySelectorAll('.nav-link');
-            links.forEach(link => {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById(tabName).classList.remove('hidden');
+            document.querySelectorAll('.nav-link').forEach(link => {
                 link.classList.remove('active');
                 if (link.getAttribute('onclick').includes(`'${tabName}'`)) {
                     link.classList.add('active');
@@ -184,6 +165,5 @@
             });
         }
     </script>
-
 </body>
 </html>

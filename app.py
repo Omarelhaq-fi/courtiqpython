@@ -114,15 +114,12 @@ def handle_training_sessions():
     coach_id = session['user_id']
     
     if request.method == 'GET':
-        start_date = request.args.get('start')
-        end_date = request.args.get('end')
+        start_date, end_date = request.args.get('start'), request.args.get('end')
         with db.cursor() as cursor:
-            cursor.execute("SELECT id, title, session_type, session_date, start_time, end_time FROM training_sessions WHERE coach_id = %s AND session_date BETWEEN %s AND %s", (coach_id, start_date, end_date))
+            cursor.execute("SELECT id, title, session_type, session_date, start_time, end_time, notes FROM training_sessions WHERE coach_id = %s AND session_date BETWEEN %s AND %s", (coach_id, start_date, end_date))
             sessions = cursor.fetchall()
-            for s in sessions: # Convert date/time objects to strings for JSON
-                s['session_date'] = s['session_date'].isoformat()
-                s['start_time'] = str(s['start_time'])
-                s['end_time'] = str(s['end_time'])
+            for s in sessions:
+                s['session_date'], s['start_time'], s['end_time'] = s['session_date'].isoformat(), str(s['start_time']), str(s['end_time'])
         return jsonify(sessions)
 
     if request.method == 'POST':
@@ -134,6 +131,19 @@ def handle_training_sessions():
         db.commit()
         return jsonify({"success": True, "id": session_id})
 
+@app.route('/api/training_session/<int:session_id>', methods=['DELETE'])
+def delete_training_session(session_id):
+    if 'user_id' not in session: return jsonify({"error": "Not authorized"}), 401
+    db = get_db()
+    with db.cursor() as cursor:
+        # Ensure a coach can only delete their own sessions
+        deleted_rows = cursor.execute("DELETE FROM training_sessions WHERE id = %s AND coach_id = %s", (session_id, session['user_id']))
+    db.commit()
+    if deleted_rows > 0:
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": "Session not found or permission denied"}), 404
+
 @app.route('/api/session_attendance/<int:session_id>', methods=['GET', 'POST'])
 def handle_attendance(session_id):
     if 'user_id' not in session: return jsonify({"error": "Not authorized"}), 401
@@ -141,21 +151,16 @@ def handle_attendance(session_id):
     if request.method == 'GET':
         with db.cursor() as cursor:
             cursor.execute("SELECT player_id FROM session_attendance WHERE session_id = %s AND is_present = 1", [session_id])
-            present_players = [row['player_id'] for row in cursor.fetchall()]
-        return jsonify(present_players)
+        return jsonify([row['player_id'] for row in cursor.fetchall()])
     
     if request.method == 'POST':
         present_ids = request.get_json().get('present_player_ids', [])
         with db.cursor() as cursor:
-            # First, get all players assigned to this coach
             cursor.execute("SELECT DISTINCT p.id FROM players p WHERE p.team_id IN (SELECT team_id FROM coaches_teams WHERE coach_id = %s) OR p.id IN (SELECT player_id FROM coaches_players WHERE coach_id = %s)", (session['user_id'], session['user_id']))
             all_player_ids = [row['id'] for row in cursor.fetchall()]
-            
-            # Upsert attendance records
             for player_id in all_player_ids:
                 is_present = 1 if player_id in present_ids else 0
-                cursor.execute("INSERT INTO session_attendance (session_id, player_id, is_present) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE is_present = %s",
-                               (session_id, player_id, is_present, is_present))
+                cursor.execute("INSERT INTO session_attendance (session_id, player_id, is_present) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE is_present = %s", (session_id, player_id, is_present, is_present))
         db.commit()
         return jsonify({"success": True})
 

@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, g
 from werkzeug.security import generate_password_hash, check_password_hash
 import pymysql.cursors
 import logging
+import json
 
 app = Flask(__name__)
 app.secret_key = 'your_very_secret_key_change_this' # Replace with a real secret key
@@ -30,7 +31,7 @@ def close_db(e=None):
     if db is not None:
         db.close()
 
-# --- Routes ---
+# --- Main Routes ---
 
 @app.route('/')
 def home():
@@ -70,41 +71,58 @@ def dashboard():
         players = cursor.fetchall()
         cursor.execute("SELECT * FROM teams ORDER BY name")
         teams = cursor.fetchall()
-        # Fetch coaches for the admin panel assignment forms
         cursor.execute("SELECT id, username FROM users WHERE role = 'coach' ORDER BY username")
         coaches = cursor.fetchall()
-    return render_template('dashboard.html', username=session['username'], role=session['role'], players=players, teams=teams, coaches=coaches)
+        # Fetch reports for the current user
+        cursor.execute("SELECT id, team_name, created_at FROM reports WHERE user_id = %s ORDER BY created_at DESC", [session['user_id']])
+        reports = cursor.fetchall()
+        
+    return render_template('dashboard.html', username=session['username'], role=session['role'], players=players, teams=teams, coaches=coaches, reports=reports)
 
 @app.route('/scouting_panel')
 def scouting_panel():
-    """Renders the dynamic scouting panel page."""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    if 'user_id' not in session: return redirect(url_for('login'))
     return render_template('scouting_panel.html')
+
+@app.route('/report/<int:report_id>')
+def view_report(report_id):
+    if 'user_id' not in session: return redirect(url_for('login'))
+    
+    db = get_db()
+    with db.cursor() as cursor:
+        # Ensure user can only see their own reports, unless they are an admin
+        if session['role'] == 'admin':
+            cursor.execute("SELECT * FROM reports WHERE id = %s", [report_id])
+        else:
+            cursor.execute("SELECT * FROM reports WHERE id = %s AND user_id = %s", (report_id, session['user_id']))
+        
+        report = cursor.fetchone()
+
+    if not report:
+        return "Report not found or you do not have permission to view it.", 404
+        
+    # The data is stored as a string, so we parse it back to a Python object
+    report_data = json.loads(report['report_data'])
+
+    return render_template('report.html', report=report, report_data=report_data)
 
 # --- API Routes ---
 
 @app.route('/api/players')
 def api_players():
-    """
-    API endpoint to get players.
-    - Admins get all players.
-    - Coaches get only players assigned to them (via teams or directly).
-    """
-    if 'user_id' not in session:
-        return jsonify({"error": "Not authorized"}), 401
+    if 'user_id' not in session: return jsonify({"error": "Not authorized"}), 401
     
     db = get_db()
     with db.cursor() as cursor:
         if session['role'] == 'admin':
             sql = "SELECT p.id, p.name, p.number, t.name as team_name FROM players p LEFT JOIN teams t ON p.team_id = t.id ORDER BY p.name"
             cursor.execute(sql)
-        else: # It's a coach
+        else:
             coach_id = session['user_id']
             sql = """
                 SELECT DISTINCT p.id, p.name, p.number, t.name as team_name
                 FROM players p
-                JOIN teams t ON p.team_id = t.id
+                LEFT JOIN teams t ON p.team_id = t.id
                 WHERE p.team_id IN (SELECT team_id FROM coaches_teams WHERE coach_id = %s)
                 OR p.id IN (SELECT player_id FROM coaches_players WHERE coach_id = %s)
                 ORDER BY p.name
@@ -114,28 +132,44 @@ def api_players():
         players = cursor.fetchall()
     return jsonify(players)
 
-# --- Admin Routes ---
+@app.route('/api/save_report', methods=['POST'])
+def save_report():
+    if 'user_id' not in session: return jsonify({"error": "Not authorized"}), 401
+    
+    data = request.get_json()
+    user_id = session['user_id']
+    team_name = data.get('teamName')
+    opponent_score = data.get('opponentScore')
+    # Convert the player data to a JSON string for storage
+    report_data_json = json.dumps(data.get('players'))
 
+    db = get_db()
+    with db.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO reports (user_id, team_name, opponent_score, report_data) VALUES (%s, %s, %s, %s)",
+            (user_id, team_name, opponent_score, report_data_json)
+        )
+        report_id = cursor.lastrowid
+    db.commit()
+
+    return jsonify({"success": True, "reportId": report_id, "message": "Report saved successfully!"})
+
+# --- Admin Routes ---
+# (add_coach, add_team, add_player, assign_resources routes remain the same)
 @app.route('/add_coach', methods=['POST'])
 def add_coach():
     if session.get('role') != 'admin': return redirect(url_for('dashboard'))
-    
     username = request.form.get('coach_username')
     password = request.form.get('coach_password')
-
-    if not username or not password:
-        return redirect(url_for('dashboard'))
-
+    if not username or not password: return redirect(url_for('dashboard'))
     hashed_password = generate_password_hash(password)
     db = get_db()
     with db.cursor() as cursor:
         try:
             cursor.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, 'coach')", (username, hashed_password))
             db.commit()
-        except pymysql.err.IntegrityError:
-            pass
+        except pymysql.err.IntegrityError: pass
     return redirect(url_for('dashboard'))
-
 
 @app.route('/add_team', methods=['POST'])
 def add_team():
@@ -165,40 +199,30 @@ def add_player():
 @app.route('/assign_resources', methods=['POST'])
 def assign_resources():
     if session.get('role') != 'admin': return redirect(url_for('dashboard'))
-    
     coach_id = request.form.get('coach_id')
     assigned_teams = request.form.getlist('assigned_teams')
     assigned_players = request.form.getlist('assigned_players')
-
-    if not coach_id:
-        return redirect(url_for('dashboard'))
-
+    if not coach_id: return redirect(url_for('dashboard'))
     db = get_db()
     with db.cursor() as cursor:
         cursor.execute("DELETE FROM coaches_teams WHERE coach_id = %s", [coach_id])
         cursor.execute("DELETE FROM coaches_players WHERE coach_id = %s", [coach_id])
-
         if assigned_teams:
             team_data = [(coach_id, team_id) for team_id in assigned_teams]
             cursor.executemany("INSERT INTO coaches_teams (coach_id, team_id) VALUES (%s, %s)", team_data)
-        
         if assigned_players:
             player_data = [(coach_id, player_id) for player_id in assigned_players]
             cursor.executemany("INSERT INTO coaches_players (coach_id, player_id) VALUES (%s, %s)", player_data)
-    
     db.commit()
     return redirect(url_for('dashboard'))
 
 # --- Temporary User Creation Route ---
-# This route is for development only.
 @app.route('/create_user_dev', methods=['GET'])
 def create_user_dev():
     username = request.args.get('user')
     password = request.args.get('pass')
     role = request.args.get('role')
-    if not (username and password and role):
-        return "Please provide user, pass, and role query parameters."
-
+    if not (username and password and role): return "Please provide user, pass, and role query parameters."
     hashed_password = generate_password_hash(password)
     db = get_db()
     try:

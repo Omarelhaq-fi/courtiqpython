@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - CourtIQ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #F3F4F6;
+        }
+        .sidebar {
+            background-color: #1F2937;
+        }
+        .nav-link {
+            color: #9CA3AF;
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-link:hover, .nav-link.active {
+            background-color: #374151;
+            color: #F97316;
+        }
+        .content-card {
+             background-color: #1f2937;
+             border: 1px solid #374151;
+        }
+        .player-summary-card {
+            background: linear-gradient(to right, #374151, #1f2937);
+            border-left: 4px solid #F97316;
+        }
+    </style>
+</head>
+<body class="flex h-screen">
+
+    <!-- Sidebar -->
+    <aside class="w-64 sidebar flex-shrink-0">
+        <div class="flex items-center justify-center h-20 border-b border-gray-700">
+            <h1 class="text-3xl font-bold text-white">Court<span class="text-orange-500">IQ</span></h1>
+        </div>
+        <nav class="mt-6">
+            <a href="#" class="nav-link active flex items-center py-3 px-6" onclick="showTab('dashboard')">
+                <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
+            </a>
+            <a href="#" class="nav-link flex items-center py-3 px-6" onclick="showTab('scouting')">
+                <i class="fas fa-clipboard-list mr-3"></i> Scouting Panel
+            </a>
+            <a href="#" class="nav-link flex items-center py-3 px-6" onclick="showTab('reports')">
+                <i class="fas fa-chart-bar mr-3"></i> Reports
+            </a>
+            {% if role == 'admin' %}
+            <a href="#" class="nav-link flex items-center py-3 px-6" onclick="showTab('admin')">
+                <i class="fas fa-users-cog mr-3"></i> Admin Panel
+            </a>
+            {% endif %}
+        </nav>
+        <div class="absolute bottom-0 w-64 p-6 border-t border-gray-700">
+             <div class="text-gray-400 text-sm">Logged in as:</div>
+             <div class="font-bold text-white">{{ username }} ({{ role }})</div>
+             <a href="{{ url_for('logout') }}" class="block w-full text-center mt-4 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">
+                Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-8 overflow-y-auto">
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content">
+            <h2 class="text-3xl font-bold mb-6">Dashboard</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Placeholder for Player Cards -->
+                <div class="content-card rounded-lg p-5 player-summary-card">
+                    <h3 class="font-bold text-xl text-white">Ammar Ahmed</h3>
+                    <p class="text-orange-400">Point Guard</p>
+                    <div class="mt-4 grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <p class="text-2xl font-bold">18.5</p>
+                            <p class="text-xs text-gray-400">PPG</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold">4.2</p>
+                            <p class="text-xs text-gray-400">RPG</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold">6.1</p>
+                            <p class="text-xs text-gray-400">APG</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="content-card rounded-lg p-5 player-summary-card">
+                    <h3 class="font-bold text-xl text-white">Player Two</h3>
+                    <p class="text-orange-400">Center</p>
+                     <div class="mt-4 grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <p class="text-2xl font-bold">12.1</p>
+                            <p class="text-xs text-gray-400">PPG</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold">9.8</p>
+                            <p class="text-xs text-gray-400">RPG</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold">1.5</p>
+                            <p class="text-xs text-gray-400">APG</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Add more player summary cards here -->
+            </div>
+        </div>
+
+        <!-- Scouting Panel Tab -->
+        <div id="scouting" class="tab-content hidden h-full">
+             <h2 class="text-3xl font-bold mb-6">Scouting Panel</h2>
+             <div class="content-card rounded-lg h-[calc(100%-5rem)]">
+                <!-- The scouting panel will be embedded here -->
+                <iframe src="{{ url_for('static', filename='scouting-panel-afadd86432g348c8X8.html') }}" class="w-full h-full border-0 rounded-lg"></iframe>
+             </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reports" class="tab-content hidden">
+            <h2 class="text-3xl font-bold mb-6">Reports</h2>
+            <div class="content-card rounded-lg p-5">
+                <p class="text-gray-400">Generated reports will appear here. When you generate a report from the scouting panel, a link to it will be automatically added to this list.</p>
+                <!-- Example of a report link -->
+                <div class="mt-4">
+                    <a href="#" class="text-orange-500 hover:underline">Report - 2025-08-05 - Player Name</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel Tab -->
+        {% if role == 'admin' %}
+        <div id="admin" class="tab-content hidden">
+            <h2 class="text-3xl font-bold mb-6">Admin Panel</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Add Team -->
+                <div class="content-card rounded-lg p-6">
+                    <h3 class="text-xl font-bold mb-4">Add New Team</h3>
+                    <form class="space-y-4">
+                        <div>
+                            <label for="new-team-name" class="block text-sm font-medium text-gray-300">Team Name</label>
+                            <input type="text" id="new-team-name" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Team</button>
+                    </form>
+                </div>
+                <!-- Add Player -->
+                <div class="content-card rounded-lg p-6">
+                    <h3 class="text-xl font-bold mb-4">Add New Player</h3>
+                    <form class="space-y-4">
+                         <div>
+                            <label for="player-team" class="block text-sm font-medium text-gray-300">Select Team</label>
+                            <select id="player-team" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                <option>Team A</option>
+                                <option>Team B</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="new-player-name" class="block text-sm font-medium text-gray-300">Player Name</label>
+                            <input type="text" id="new-player-name" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Add Player</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => {
+                tab.classList.add('hidden');
+            });
+
+            // Show the selected tab
+            const activeTab = document.getElementById(tabName);
+            if (activeTab) {
+                activeTab.classList.remove('hidden');
+            }
+            
+            // Update active link style
+            const links = document.querySelectorAll('.nav-link');
+            links.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('onclick').includes(`'${tabName}'`)) {
+                    link.classList.add('active');
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>

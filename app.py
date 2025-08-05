@@ -6,45 +6,23 @@ app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Replace with a real secret key
 
 # --- Database Configuration ---
-# You should ideally store these in a separate, secure config file.
+# Updated with your new database credentials
 app.config['MYSQL_HOST'] = 'mysql6013.site4now.net'
-app.config['MYSQL_USER'] = 'abc901_courtiq'
+app.config['MYSQL_USER'] = 'abc901_newcour'
 app.config['MYSQL_PASSWORD'] = 'omarreda123'
-app.config['MYSQL_DB'] = 'db_abc901_courtiq'
+app.config['MYSQL_DB'] = 'db_abc901_newcour'
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor' # Returns results as dictionaries
 
 mysql = MySQL(app)
 
 # --- Database Schema Assumption ---
-# For this application to work, you need to create tables in your MySQL database.
-# Here is the example SQL to create them:
+# For this application to work, you need to run the SQL setup script
+# in your new 'db_abc901_newcour' database.
 #
-# CREATE TABLE users (
-#     id INT AUTO_INCREMENT PRIMARY KEY,
-#     username VARCHAR(255) NOT NULL UNIQUE,
-#     password VARCHAR(255) NOT NULL, -- In a real app, this should be a hashed password
-#     role VARCHAR(50) NOT NULL
-# );
-#
-# CREATE TABLE teams (
-#     id INT AUTO_INCREMENT PRIMARY KEY,
-#     name VARCHAR(255) NOT NULL UNIQUE
-# );
-#
-# CREATE TABLE players (
-#     id INT AUTO_INCREMENT PRIMARY KEY,
-#     name VARCHAR(255) NOT NULL,
-#     position VARCHAR(100),
-#     ppg DECIMAL(4,1),
-#     rpg DECIMAL(4,1),
-#     apg DECIMAL(4,1),
-#     team_id INT,
-#     FOREIGN KEY (team_id) REFERENCES teams(id)
-# );
-#
-# -- To insert the initial users:
-# INSERT INTO users (username, password, role) VALUES ('admin', 'adminpassword', 'admin');
-# INSERT INTO users (username, password, role) VALUES ('coach', 'coachpassword', 'coach');
+# CREATE TABLE users (...);
+# CREATE TABLE teams (...);
+# CREATE TABLE players (...);
+# INSERT INTO users (...);
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

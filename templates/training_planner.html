@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtIQ - Training Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #1a202c; color: #e2e8f0; }
+        .calendar-grid { grid-template-columns: 60px repeat(7, 1fr); }
+        .calendar-slot { min-height: 80px; }
+        .template-card { cursor: grab; }
+        .session-card { cursor: pointer; }
+        .modal-backdrop { background-color: rgba(0,0,0,0.7); backdrop-filter: blur(5px); }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Main Content -->
+    <main class="flex flex-1 overflow-hidden">
+        <!-- Templates Sidebar -->
+        <aside class="w-64 bg-gray-900 p-4 overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4">Session Templates</h2>
+            <div id="template-list" class="space-y-3">
+                <!-- Templates will be added here by JS -->
+            </div>
+        </aside>
+
+        <!-- Calendar -->
+        <div class="flex-1 flex flex-col">
+            <header class="flex items-center justify-between p-4 border-b border-gray-700">
+                <button id="prev-week" class="p-2 rounded-md hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
+                <h2 id="week-display" class="text-xl font-bold"></h2>
+                <button id="next-week" class="p-2 rounded-md hover:bg-gray-700"><i class="fas fa-chevron-right"></i></button>
+            </header>
+            <div id="calendar-container" class="flex-1 overflow-auto">
+                <div id="calendar-grid" class="calendar-grid">
+                    <!-- Calendar will be generated here by JS -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Session Modal -->
+    <div id="session-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4">New Training Session</h3>
+            <form id="session-form">
+                <input type="hidden" id="session-id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="block text-sm">Title</label><input type="text" id="session-title" class="w-full bg-gray-700 p-2 rounded mt-1" required></div>
+                    <div><label class="block text-sm">Type</label><input type="text" id="session-type" class="w-full bg-gray-700 p-2 rounded mt-1"></div>
+                    <div><label class="block text-sm">Date</label><input type="date" id="session-date" class="w-full bg-gray-700 p-2 rounded mt-1" required></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="block text-sm">Start Time</label><input type="time" id="start-time" class="w-full bg-gray-700 p-2 rounded mt-1" required></div>
+                        <div><label class="block text-sm">End Time</label><input type="time" id="end-time" class="w-full bg-gray-700 p-2 rounded mt-1" required></div>
+                    </div>
+                </div>
+                <div class="mt-4"><label class="block text-sm">Notes</label><textarea id="session-notes" class="w-full bg-gray-700 p-2 rounded mt-1" rows="3"></textarea></div>
+                
+                <div id="attendance-section" class="mt-4 hidden"><h4 class="font-bold mb-2">Attendance</h4><div id="player-checklist" class="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto bg-gray-900 p-3 rounded"></div></div>
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" id="cancel-btn" class="bg-gray-600 py-2 px-4 rounded">Cancel</button>
+                    <button type="submit" class="bg-orange-600 py-2 px-4 rounded">Save Session</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    // FullCalendar-like application logic
+    const app = {
+        currentDate: new Date(),
+        templates: [
+            { title: 'Conditioning', type: 'Conditioning', color: 'bg-red-500' },
+            { title: 'Shooting Drills', type: 'Shooting', color: 'bg-green-500' },
+            { title: 'Defensive Sets', type: 'Defense', color: 'bg-blue-500' },
+            { title: 'Team Scrimmage', type: 'Scrimmage', color: 'bg-purple-500' },
+            { title: 'Film Review', type: 'Analysis', color: 'bg-yellow-500' }
+        ],
+        players: [],
+
+        init() {
+            this.cacheDOMElements();
+            this.addEventListeners();
+            this.fetchPlayers();
+            this.render();
+        },
+
+        cacheDOMElements() {
+            this.weekDisplay = document.getElementById('week-display');
+            this.calendarGrid = document.getElementById('calendar-grid');
+            this.templateList = document.getElementById('template-list');
+            this.modal = document.getElementById('session-modal');
+            this.form = document.getElementById('session-form');
+            this.attendanceSection = document.getElementById('attendance-section');
+            this.playerChecklist = document.getElementById('player-checklist');
+        },
+
+        addEventListeners() {
+            document.getElementById('prev-week').addEventListener('click', () => this.changeWeek(-7));
+            document.getElementById('next-week').addEventListener('click', () => this.changeWeek(7));
+            document.getElementById('cancel-btn').addEventListener('click', () => this.closeModal());
+            this.form.addEventListener('submit', (e) => this.saveSession(e));
+        },
+
+        async fetchPlayers() {
+            try {
+                const response = await fetch('/api/players');
+                this.players = await response.json();
+            } catch (e) { console.error("Failed to fetch players", e); }
+        },
+
+        changeWeek(days) {
+            this.currentDate.setDate(this.currentDate.getDate() + days);
+            this.render();
+        },
+
+        async render() {
+            this.renderTemplates();
+            this.renderCalendar();
+        },
+        
+        renderTemplates() {
+            this.templateList.innerHTML = this.templates.map(t => `
+                <div class="template-card p-3 rounded-md ${t.color}" draggable="true" data-title="${t.title}" data-type="${t.type}">
+                    <h4 class="font-bold text-white">${t.title}</h4>
+                </div>
+            `).join('');
+            this.templateList.querySelectorAll('.template-card').forEach(card => {
+                card.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('application/json', JSON.stringify({ title: e.target.dataset.title, type: e.target.dataset.type }));
+                });
+            });
+        },
+
+        async renderCalendar() {
+            const week = this.getWeekDays(this.currentDate);
+            this.weekDisplay.textContent = `${week[0].toLocaleDateString()} - ${week[6].toLocaleDateString()}`;
+            
+            let html = '<div class="col-start-1 col-span-1"></div>' + week.map(day => `<div class="text-center p-2 border-b border-l border-gray-700"><b>${day.toLocaleDateString('en-US', { weekday: 'short' })}</b><br>${day.getDate()}</div>`).join('');
+            
+            for (let hour = 7; hour <= 21; hour++) {
+                html += `<div class="row-start-${hour-5} col-start-1 text-xs text-right pr-2 border-r border-gray-700">${hour}:00</div>`;
+                for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                    html += `<div class="calendar-slot border-b border-l border-gray-700 p-1" data-date="${week[dayIndex].toISOString().split('T')[0]}" data-hour="${hour}"></div>`;
+                }
+            }
+            this.calendarGrid.innerHTML = html;
+
+            const start = week[0].toISOString().split('T')[0];
+            const end = week[6].toISOString().split('T')[0];
+            const response = await fetch(`/api/training_sessions?start=${start}&end=${end}`);
+            const sessions = await response.json();
+            
+            sessions.forEach(s => {
+                const hour = parseInt(s.start_time.split(':')[0]);
+                const slot = document.querySelector(`.calendar-slot[data-date="${s.session_date}"][data-hour="${hour}"]`);
+                if (slot) {
+                    const sessionType = this.templates.find(t => t.type === s.session_type) || { color: 'bg-gray-500' };
+                    const card = document.createElement('div');
+                    card.className = `session-card p-2 rounded text-white text-sm ${sessionType.color} h-full`;
+                    card.textContent = s.title;
+                    card.dataset.sessionId = s.id;
+                    card.addEventListener('click', () => this.openModal(s));
+                    slot.appendChild(card);
+                }
+            });
+
+            this.addDropListeners();
+        },
+
+        addDropListeners() {
+            document.querySelectorAll('.calendar-slot').forEach(slot => {
+                slot.addEventListener('dragover', e => e.preventDefault());
+                slot.addEventListener('drop', e => {
+                    e.preventDefault();
+                    const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                    const date = e.target.dataset.date;
+                    const hour = e.target.dataset.hour;
+                    this.openModal({
+                        title: data.title,
+                        session_type: data.type,
+                        session_date: date,
+                        start_time: `${hour.padStart(2, '0')}:00`,
+                        end_time: `${(parseInt(hour)+1).toString().padStart(2, '0')}:00`,
+                    });
+                });
+            });
+        },
+
+        async openModal(session = {}) {
+            this.form.reset();
+            this.form['session-id'].value = session.id || '';
+            this.form['session-title'].value = session.title || '';
+            this.form['session-type'].value = session.session_type || '';
+            this.form['session-date'].value = session.session_date || new Date().toISOString().split('T')[0];
+            this.form['start-time'].value = session.start_time || '';
+            this.form['end-time'].value = session.end_time || '';
+            this.form['session-notes'].value = session.notes || '';
+            
+            if (session.id) {
+                this.attendanceSection.classList.remove('hidden');
+                this.renderAttendance(session.id);
+            } else {
+                this.attendanceSection.classList.add('hidden');
+            }
+            
+            this.modal.classList.remove('hidden');
+            this.modal.classList.add('flex');
+        },
+
+        async renderAttendance(sessionId) {
+            const response = await fetch(`/api/session_attendance/${sessionId}`);
+            const presentPlayerIds = await response.json();
+            this.playerChecklist.innerHTML = this.players.map(p => `
+                <div class="flex items-center">
+                    <input type="checkbox" id="player-${p.id}" value="${p.id}" class="w-4 h-4" ${presentPlayerIds.includes(p.id) ? 'checked' : ''}>
+                    <label for="player-${p.id}" class="ml-2 text-sm">${p.name}</label>
+                </div>
+            `).join('');
+        },
+
+        closeModal() {
+            this.modal.classList.add('hidden');
+            this.modal.classList.remove('flex');
+        },
+
+        async saveSession(e) {
+            e.preventDefault();
+            const id = this.form['session-id'].value;
+            const data = {
+                title: this.form['session-title'].value,
+                session_type: this.form['session-type'].value,
+                session_date: this.form['session-date'].value,
+                start_time: this.form['start-time'].value,
+                end_time: this.form['end-time'].value,
+                notes: this.form['session-notes'].value,
+            };
+            // For now, we only save the session details. Attendance is a separate action.
+            const response = await fetch('/api/training_sessions', {
+                method: 'POST', // Should be PUT if id exists, but POST simplifies backend
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (id) { // If we were editing, now save attendance
+                    const present_player_ids = Array.from(this.playerChecklist.querySelectorAll('input:checked')).map(cb => parseInt(cb.value));
+                    await fetch(`/api/session_attendance/${id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ present_player_ids })
+                    });
+                }
+                this.closeModal();
+                this.renderCalendar();
+            } else {
+                alert('Failed to save session');
+            }
+        },
+
+        getWeekDays(date) {
+            const start = new Date(date);
+            const dayOfWeek = start.getDay();
+            start.setDate(start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)); // Adjust to start on Monday
+            return Array.from({ length: 7 }, (_, i) => {
+                const d = new Date(start);
+                d.setDate(d.getDate() + i);
+                return d;
+            });
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>

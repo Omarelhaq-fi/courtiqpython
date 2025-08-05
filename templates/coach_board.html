@@ -61,7 +61,6 @@
     const canvasContainer = document.getElementById('canvas-container');
     const playerListEl = document.getElementById('player-list');
     
-    // --- Tool DOM Elements ---
     const penTool = document.getElementById('pen-tool');
     const eraserTool = document.getElementById('eraser-tool');
     const colorPicker = document.getElementById('color-picker');
@@ -70,87 +69,88 @@
 
     let isDrawing = false;
     let currentTool = 'pen';
-    let paths = []; // To store all drawing paths
-    let playerTokens = []; // To store player tokens on the canvas
+    let paths = [];
+    let playerTokens = [];
     let draggedToken = null;
     let offsetX, offsetY;
 
     function resizeCanvas() {
         const containerRect = canvasContainer.getBoundingClientRect();
-        // Aspect ratio for a standard half court (50ft wide x 47ft long)
-        const aspectRatio = 470 / 500; 
-        let newWidth = containerRect.width - 32; // padding
-        let newHeight = newWidth * aspectRatio;
+        // Aspect ratio for a HORIZONTAL half court (47ft long x 50ft wide)
+        const aspectRatio = 500 / 470; 
+        let newHeight = containerRect.height - 32;
+        let newWidth = newHeight * aspectRatio;
 
-        if (newHeight > containerRect.height - 32) {
-            newHeight = containerRect.height - 32;
-            newWidth = newHeight / aspectRatio;
+        if (newWidth > containerRect.width - 32) {
+            newWidth = containerRect.width - 32;
+            newHeight = newWidth / aspectRatio;
         }
         
         canvas.width = newWidth;
         canvas.height = newHeight;
-        draw(); // Redraw everything after resize
+        draw();
     }
 
     function drawCourt() {
         const w = canvas.width;
         const h = canvas.height;
         
-        // Clear canvas and set background
         ctx.fillStyle = '#2d3748';
         ctx.fillRect(0, 0, w, h);
 
-        // --- Define Court Geometry (based on 50ft width) ---
-        const scale = w / 50;
+        // --- Define Court Geometry (Horizontal Half-Court) ---
+        const scale = h / 50; // pixels per foot, based on 50ft court width
         const court = {
-            keyWidth: 12 * scale,
+            keyWidth: 16 * scale,
             keyHeight: 19 * scale,
             hoopRadius: 0.75 * scale,
-            hoopCenterX: w / 2,
-            hoopCenterY: 5.25 * scale,
+            hoopCenterX: 5.25 * scale,
+            hoopCenterY: h / 2,
             backboardWidth: 6 * scale,
-            backboardOffsetY: 4 * scale,
-            threePointRadius: 23.75 * scale,
-            threePointSideLineX: 3 * scale
+            backboardOffsetX: 4 * scale,
+            threePointRadius: 22.15 * scale,
+            threePointSideLineY: 2.95 * scale,
         };
 
         // --- Set default line style ---
         ctx.strokeStyle = '#6b7280';
         ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
 
         // --- Draw Key and Free Throw Circle ---
-        ctx.strokeRect((w - court.keyWidth) / 2, 0, court.keyWidth, court.keyHeight);
+        ctx.strokeRect(0, (h - court.keyWidth) / 2, court.keyHeight, court.keyWidth);
+
+        // Free throw circle (solid part)
         ctx.beginPath();
-        ctx.arc(court.hoopCenterX, court.keyHeight, court.keyWidth / 2, 0, Math.PI, true);
+        ctx.arc(court.keyHeight, court.hoopCenterY, court.keyWidth / 2, -Math.PI / 2, Math.PI / 2, false);
         ctx.stroke();
+
+        // Free throw circle (dashed part)
         ctx.beginPath();
         ctx.setLineDash([5, 5]);
-        ctx.arc(court.hoopCenterX, court.keyHeight, court.keyWidth / 2, 0, Math.PI, false);
+        ctx.arc(court.keyHeight, court.hoopCenterY, court.keyWidth / 2, Math.PI / 2, -Math.PI / 2, false);
         ctx.stroke();
         ctx.setLineDash([]);
 
         // --- Draw Three-Point Line ---
-        // Calculate the Y-coordinate where the arc meets the straight line
-        // using pythagorean theorem: r^2 = dx^2 + dy^2
-        const dx = court.hoopCenterX - court.threePointSideLineX;
-        const dy = Math.sqrt(Math.max(0, court.threePointRadius**2 - dx**2));
-        const arcIntersectionY = court.hoopCenterY + dy;
+        const dx = Math.sqrt(Math.max(0, court.threePointRadius**2 - (h/2 - court.threePointSideLineY)**2));
+        const arcIntersectionX = court.hoopCenterX + dx;
         
-        // Calculate the start and end angles for the arc
-        const startAngle = Math.atan2(arcIntersectionY - court.hoopCenterY, court.threePointSideLineX - court.hoopCenterX);
-        const endAngle = Math.atan2(arcIntersectionY - court.hoopCenterY, (w - court.threePointSideLineX) - court.hoopCenterX);
+        const startAngle = -Math.atan2(h/2 - court.threePointSideLineY, arcIntersectionX - court.hoopCenterX);
+        const endAngle = -startAngle;
 
         ctx.beginPath();
-        ctx.moveTo(court.threePointSideLineX, 0); // Start at left baseline
-        ctx.lineTo(court.threePointSideLineX, arcIntersectionY); // Draw left straight line
-        ctx.arc(court.hoopCenterX, court.hoopCenterY, court.threePointRadius, startAngle, endAngle, false); // Draw the arc
-        ctx.lineTo(w - court.threePointSideLineX, 0); // Draw right straight line to baseline
+        ctx.moveTo(arcIntersectionX, court.threePointSideLineY);
+        ctx.lineTo(0, court.threePointSideLineY); // Top straight line
+        ctx.moveTo(0, h - court.threePointSideLineY); // Bottom straight line
+        ctx.lineTo(arcIntersectionX, h - court.threePointSideLineY);
+        ctx.arc(court.hoopCenterX, court.hoopCenterY, court.threePointRadius, startAngle, endAngle, false); // Arc
         ctx.stroke();
-        
+
         // --- Draw Backboard ---
         ctx.beginPath();
-        ctx.moveTo((w - court.backboardWidth) / 2, court.backboardOffsetY);
-        ctx.lineTo((w + court.backboardWidth) / 2, court.backboardOffsetY);
+        ctx.moveTo(court.backboardOffsetX, (h - court.backboardWidth) / 2);
+        ctx.lineTo(court.backboardOffsetX, (h + court.backboardWidth) / 2);
         ctx.lineWidth = 4;
         ctx.stroke();
 
@@ -160,13 +160,14 @@
         ctx.lineWidth = 2;
         ctx.strokeStyle = '#F97316';
         ctx.stroke();
+        
+        ctx.strokeStyle = '#6b7280';
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawCourt();
 
-        // Draw all saved paths
         paths.forEach(path => {
             ctx.beginPath();
             ctx.strokeStyle = path.color;
@@ -174,16 +175,12 @@
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             path.points.forEach((point, index) => {
-                if (index === 0) {
-                    ctx.moveTo(point.x, point.y);
-                } else {
-                    ctx.lineTo(point.x, point.y);
-                }
+                if (index === 0) ctx.moveTo(point.x, point.y);
+                else ctx.lineTo(point.x, point.y);
             });
             ctx.stroke();
         });
         
-        // Draw player tokens
         playerTokens.forEach(token => {
             ctx.beginPath();
             ctx.arc(token.x, token.y, 20, 0, Math.PI * 2);
@@ -204,19 +201,18 @@
         e.preventDefault();
         const pos = getCanvasPos(e);
         
-        // Check if we are dragging a token
         draggedToken = playerTokens.find(token => 
             Math.sqrt((pos.x - token.x)**2 + (pos.y - token.y)**2) < 20
         );
 
         if (draggedToken) {
-            isDrawing = false; // We are dragging, not drawing
+            isDrawing = false;
             offsetX = pos.x - draggedToken.x;
             offsetY = pos.y - draggedToken.y;
         } else {
             isDrawing = true;
             const newPath = {
-                color: currentTool === 'pen' ? colorPicker.value : '#2d3748', // Eraser is just drawing the background color
+                color: currentTool === 'pen' ? colorPicker.value : '#2d3748',
                 width: currentTool === 'pen' ? lineWidthRange.value : 25,
                 points: [{ x: pos.x, y: pos.y }]
             };
@@ -318,7 +314,6 @@
         const playerData = JSON.parse(e.dataTransfer.getData('text/plain'));
         const pos = getCanvasPos(e);
         
-        // Avoid adding duplicate tokens
         if (!playerTokens.some(token => token.id === playerData.id)) {
             playerTokens.push({
                 id: playerData.id,
